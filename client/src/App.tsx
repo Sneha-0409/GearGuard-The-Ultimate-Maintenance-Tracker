@@ -15,6 +15,7 @@ import VehicleList from './pages/VehicleList';
 import SettingsPage from './pages/SettingsPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AnalyticsPage from './pages/AnalyticsPage';
+import PredictiveDashboard from './pages/PredictiveDashboard';
 
 import { NotificationProvider } from './contexts/NotificationContext';
 import { Toaster } from 'react-hot-toast';
@@ -65,6 +66,7 @@ function App() {
             <Route path="/vehicles" element={<VehicleList />} />
             <Route path="/teams" element={<TeamsPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/predictive" element={<PredictiveDashboard />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </Layout>
