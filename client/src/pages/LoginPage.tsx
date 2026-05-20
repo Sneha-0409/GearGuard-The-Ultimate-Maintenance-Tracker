@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/authService';
+import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
 import { Shield, Lock, Mail, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,9 +32,8 @@ const LoginPage: React.FC = () => {
       
       toast.success('Logged in successfully!');
       navigate('/');
-      window.location.reload(); // Quick way to refresh layout and routes
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Login failed');
+      toast.error(error.response?.data?.msg || error.response?.data?.error || 'Login failed');
     } finally {
       setLoading(false);
     }

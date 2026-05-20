@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { useState, useEffect } from 'react';
 import { authService } from './services/authService';
@@ -14,10 +15,13 @@ import ActivityPage from './pages/ActivityPage';
 import VehicleList from './pages/VehicleList';
 import SettingsPage from './pages/SettingsPage';
 import AdminDashboard from './pages/AdminDashboard';
+import LoginPage from './pages/LoginPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import InventoryList from './pages/InventoryList';
+import PredictiveDashboard from './pages/PredictiveDashboard';
 
 import { NotificationProvider } from './contexts/NotificationContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -67,22 +71,29 @@ function App() {
             <Route path="/vehicles" element={<VehicleList />} />
             <Route path="/teams" element={<TeamsPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/predictive" element={<PredictiveDashboard />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </Layout>
       </Router>
 
-      <Toaster
-        position="top-right"
-        reverseOrder={false}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            fontSize: "14px",
-          },
-        }}
-      />
-    </NotificationProvider>
+function App() {
+  return (
+    <AuthProvider>
+      <NotificationProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+        <Toaster
+          position="top-right"
+          reverseOrder={false}
+          toastOptions={{
+            duration: 4000,
+            style: { fontSize: '14px' },
+          }}
+        />
+      </NotificationProvider>
+    </AuthProvider>
   );
 }
 

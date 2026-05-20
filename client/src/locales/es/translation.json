@@ -10,7 +10,8 @@
     "teams": "Equipos",
     "activity": "Actividad",
     "analytics": "Análisis",
-    "inventory": "Inventario"
+    "inventory": "Inventario",
+    "predictive": "Portal Predictivo"
   },
   "layout": {
     "title": "GearGuard",

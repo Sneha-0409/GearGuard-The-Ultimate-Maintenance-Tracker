@@ -10,7 +10,8 @@
     "teams": "Teams",
     "activity": "Activity",
     "analytics": "Analytics",
-    "inventory": "Inventory"
+    "inventory": "Inventory",
+    "predictive": "Predictive Portal"
   },
 
   "layout": {
