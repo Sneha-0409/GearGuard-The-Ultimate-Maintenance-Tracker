@@ -6,6 +6,7 @@ const {
   SparePart,
 } = require("../models");
 const { logActivity } = require("../utils/logActivity");
+const { auditLog } = require("../utils/auditLogger");
 const NotificationService = require("../services/notificationService");
 
 const decrementInventory = async (io, partsUsed) => {
@@ -220,6 +221,14 @@ const request = await MaintenanceRequest.create({
       entityId: String(requestWithRelations._id),
     });
 
+    await auditLog({
+      entityType: 'MaintenanceRequest',
+      entityId: request._id,
+      action: 'CREATE',
+      userId: req.user?._id,
+      userName: userName
+    });
+
     // Notify: request created
     const io = req.app.get("socketio");
     await NotificationService.notifyRequestChange(io, "request_created", requestWithRelations);
@@ -330,6 +339,17 @@ exports.updateRequest = async (req, res) => {
       });
     }
 
+    // Call auditLogger for diff tracking
+    await auditLog({
+      entityType: 'MaintenanceRequest',
+      entityId: request._id,
+      action: 'UPDATE',
+      oldDoc: request,
+      newDoc: { ...request.toObject(), ...payload },
+      userId: req.user?._id,
+      userName: request.createdBy?.name || ""
+    });
+
     await MaintenanceRequest.findByIdAndUpdate(req.params.id, payload);
 
     const isCompleted = prevStage === "repaired" || prevStage === "scrap";
@@ -422,6 +442,16 @@ exports.updateRequestStage = async (req, res) => {
     if (!request) return res.status(404).json({ error: "Request not found" });
 
     const prevStage = request.stage;
+
+    await auditLog({
+      entityType: 'MaintenanceRequest',
+      entityId: request._id,
+      action: 'UPDATE',
+      oldDoc: request,
+      newDoc: { ...request.toObject(), stage },
+      userId: req.user?._id,
+      userName: request.createdBy?.name || ""
+    });
 
     await MaintenanceRequest.findByIdAndUpdate(req.params.id, { stage });
 
@@ -527,6 +557,14 @@ exports.deleteRequest = async (req, res) => {
       metadata: { requestNumber: request.requestNumber },
       entityType: "request",
       entityId: String(request._id),
+    });
+
+    await auditLog({
+      entityType: 'MaintenanceRequest',
+      entityId: request._id,
+      action: 'DELETE',
+      userId: req.user?._id,
+      userName: userName
     });
 
     // Notify: request deleted
