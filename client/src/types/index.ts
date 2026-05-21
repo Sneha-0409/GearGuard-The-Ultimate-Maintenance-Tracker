@@ -197,5 +197,22 @@ export interface GlobalSearchResults {
   requests: SearchRequestResult[];
 }
 
+export interface AuditChange {
+  field: string;
+  oldValue: any;
+  newValue: any;
+}
+
+export interface AuditLog {
+  _id: string;
+  entityType: string;
+  entityId: string;
+  userId?: { _id: string; name: string; email: string };
+  userName?: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  changes: AuditChange[];
+  createdAt: string;
+}
+
 export * from './activity';
 export * from './inventory';
