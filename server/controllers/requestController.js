@@ -234,6 +234,20 @@ const request = await MaintenanceRequest.create({
         console.error("EMAIL ERROR:", error);
       }
     }
+
+    // Notify assigned technician (Level 3 specific)
+    if (request.assignedToId || requestWithRelations.assignedToId) {
+      const assignedUserId = request.assignedToId || requestWithRelations.assignedToId;
+      await NotificationService.createAndEmit({
+        userId: assignedUserId,
+        title: 'New Request Assigned',
+        message: `You have been assigned a new maintenance request: "${requestWithRelations.subject || requestWithRelations.requestNumber}"`,
+        type: 'request_assigned',
+        link: '/kanban',
+        relatedRequestId: request._id,
+      });
+    }
+
     // Activity: equipment status changed (if we changed it)
     if (
       equipmentDoc &&
@@ -287,6 +301,33 @@ exports.updateRequest = async (req, res) => {
             status: "scrapped",
           });
       }
+    }
+
+    // Notify requester if stage changed
+    if (payload.stage && payload.stage !== prevStage) {
+      if (request.createdBy) {
+        await NotificationService.createAndEmit({
+          userId: request.createdBy._id || request.createdBy,
+          title: 'Request Status Updated',
+          message: `Your request "${request.subject || request.requestNumber}" has been updated to: ${payload.stage}`,
+          type: 'request_updated',
+          link: '/kanban',
+          relatedRequestId: request._id,
+        });
+      }
+    }
+
+    // Notify new assignee if assignedToId changed
+    if (payload.assignedToId &&
+        String(payload.assignedToId) !== String(request.assignedToId?._id || request.assignedToId)) {
+      await NotificationService.createAndEmit({
+        userId: payload.assignedToId,
+        title: 'Request Assigned to You',
+        message: `You have been assigned to: "${request.subject || request.requestNumber}"`,
+        type: 'request_assigned',
+        link: '/kanban',
+        relatedRequestId: request._id,
+      });
     }
 
     await MaintenanceRequest.findByIdAndUpdate(req.params.id, payload);

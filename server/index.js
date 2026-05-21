@@ -13,6 +13,8 @@ const swaggerUi = require("swagger-ui-express");
 
 const { globalLimiter } = require("./middleware/rateLimiter");
 const { errorMiddleware } = require("./middleware/errorHandler");
+const NotificationService = require("./services/notificationService");
+const { startOverdueChecker } = require("./jobs/overdueChecker");
 const { syncDatabase } = require("./models");
 const swaggerSpec = require("./config/swagger");
 
@@ -30,6 +32,7 @@ const searchRoutes = require("./routes/search");
 const inventoryRoutes = require("./routes/inventory");
 const analyticsRoutes = require("./routes/analytics");
 const predictiveRoutes = require("./routes/predictiveRoutes");
+const purchaseOrderRoutes = require("./routes/purchaseOrder");
 
 console.log("ENV CHECK");
 console.log("MONGO_URI:", process.env.MONGO_URI ? "Set" : "Not Set");
@@ -77,6 +80,13 @@ io.on("connection", (socket) => {
     socket.join(socket.user.id);
   }
 
+  // Client sends their userId to join their personal room
+  socket.on('join', (userId) => {
+    if (userId) {
+      socket.join(`user:${userId}`);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log(`❌ User disconnected: ${socket.id}`);
   });
@@ -84,6 +94,9 @@ io.on("connection", (socket) => {
 
 // Make io accessible to routes/controllers
 app.set("socketio", io);
+
+// Pass io to notification service
+NotificationService.setSocketIO(io);
 
 // Request ID middleware
 app.use((req, res, next) => {
@@ -121,6 +134,7 @@ const defineRoutes = (router) => {
   router.use("/inventory", inventoryRoutes);
   router.use("/upload", uploadRoutes);
   router.use("/export", require("./routes/export"));
+  router.use("/purchase-orders", purchaseOrderRoutes);
 };
 
 const v1Router = express.Router();
@@ -168,6 +182,11 @@ const startServer = async () => {
       try {
         await syncDatabase();
         console.log("✓ Database synced successfully");
+        
+        // Start Cron Jobs
+        const { scheduleInventoryCron } = require("./cron/inventoryCron");
+        scheduleInventoryCron();
+        
         break;
       } catch (err) {
         retries -= 1;
@@ -176,6 +195,9 @@ const startServer = async () => {
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
+
+    // Start overdue checker cron job
+    startOverdueChecker();
 
     server.listen(PORT, () => {
       console.log(`\n🚀 GearGuard Server Running!`);
