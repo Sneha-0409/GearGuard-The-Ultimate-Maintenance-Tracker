@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
+const { globalLimiter } = require("./middleware/rateLimiter");
 require("dotenv").config();
 const { errorMiddleware } = require("./middleware/errorHandler");
 
@@ -55,6 +56,9 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Apply global rate limiter to all routes
+app.use(globalLimiter);
 
 // Routes
 app.use("/api/auth", authRoutes);
