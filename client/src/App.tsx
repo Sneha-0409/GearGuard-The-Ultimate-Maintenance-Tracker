@@ -17,6 +17,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import InventoryList from './pages/InventoryList';
 import PredictiveDashboard from './pages/PredictiveDashboard';
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
+import FloorPlan from './pages/FloorPlan.tsx';
 
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -42,6 +43,7 @@ function AppContent() {
         <Route path="/requests-all" element={<RequestsPage />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/calendar" element={<CalendarView />} />
+        <Route path="/floor-plan" element={<FloorPlan />} />
         <Route path="/equipment" element={<EquipmentList />} />
         <Route path="/inventory" element={<InventoryList />} />
         <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
