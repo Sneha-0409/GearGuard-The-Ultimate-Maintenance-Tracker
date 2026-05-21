@@ -13,6 +13,8 @@ const swaggerUi = require("swagger-ui-express");
 
 const { globalLimiter } = require("./middleware/rateLimiter");
 const { errorMiddleware } = require("./middleware/errorHandler");
+const NotificationService = require("./services/notificationService");
+const { startOverdueChecker } = require("./jobs/overdueChecker");
 const { syncDatabase } = require("./models");
 const swaggerSpec = require("./config/swagger");
 
@@ -77,6 +79,13 @@ io.on("connection", (socket) => {
     socket.join(socket.user.id);
   }
 
+  // Client sends their userId to join their personal room
+  socket.on('join', (userId) => {
+    if (userId) {
+      socket.join(`user:${userId}`);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log(`❌ User disconnected: ${socket.id}`);
   });
@@ -84,6 +93,9 @@ io.on("connection", (socket) => {
 
 // Make io accessible to routes/controllers
 app.set("socketio", io);
+
+// Pass io to notification service
+NotificationService.setSocketIO(io);
 
 // Request ID middleware
 app.use((req, res, next) => {
@@ -161,7 +173,6 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     console.log("🔄 Syncing database...");
-    
     // Retry mechanism for database connection
     let retries = 5;
     while (retries > 0) {
@@ -176,6 +187,9 @@ const startServer = async () => {
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
+
+    // Start overdue checker cron job
+    startOverdueChecker();
 
     server.listen(PORT, () => {
       console.log(`\n🚀 GearGuard Server Running!`);
