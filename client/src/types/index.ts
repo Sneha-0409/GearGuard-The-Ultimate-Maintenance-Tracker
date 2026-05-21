@@ -25,6 +25,7 @@ export interface Equipment {
   defaultTechnicianId?: string | { _id: string; name: string; email?: string; role?: string };
   defaultTechnician?: TeamMember;
   openRequestsCount?: number;
+  mapCoordinates?: { x: number; y: number };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -101,6 +102,7 @@ export interface CreateEquipmentDto {
   notes?: string;
   maintenanceTeamId?: string;
   defaultTechnicianId?: string;
+  mapCoordinates?: { x: number; y: number };
 }
 
 export interface CreateMaintenanceRequestDto {
