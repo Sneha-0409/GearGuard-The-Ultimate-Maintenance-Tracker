@@ -2,6 +2,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const Equipment = require('../models/Equipment');
 const MaintenanceRequest = require('../models/MaintenanceRequest');
+const escapeRegex = require('../utils/escapeRegex');
 
 // ─── HELPER: format date ───────────────────────────────────
 const formatDate = (date) => {
@@ -137,9 +138,10 @@ const exportRequestsExcel = async (req, res) => {
       if (endDate) query.scheduledDate.$lte = new Date(endDate);
     }
     if (search) {
+      const safeSearch = escapeRegex(search);
       query.$or = [
-        { subject: { $regex: search, $options: 'i' } },
-        { requestNumber: { $regex: search, $options: 'i' } },
+        { subject: { $regex: safeSearch, $options: 'i' } },
+        { requestNumber: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 

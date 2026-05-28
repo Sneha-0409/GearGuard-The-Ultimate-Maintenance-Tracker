@@ -25,7 +25,7 @@ const FloorPlan: React.FC = () => {
     try {
       setLoading(true);
       const res = await api.get('/equipment');
-      setEquipmentList(res.data.equipment || res.data);
+      setEquipmentList(res.data.data || res.data.equipment || res.data);
     } catch (error) {
       toast.error('Failed to load equipment');
     } finally {

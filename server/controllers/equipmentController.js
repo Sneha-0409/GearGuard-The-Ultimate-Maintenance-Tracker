@@ -8,6 +8,7 @@ const NotificationService = require("../services/notificationService");
 const { auditLog } = require("../utils/auditLogger");
 const { ErrorHandler, ERROR_TYPES } = require("../utils/errorHandler");
 const { asyncHandler } = require("../middleware/errorHandler");
+const escapeRegex = require("../utils/escapeRegex");
 
 // Remove empty-string fields so Mongoose type casting/enum validation doesn't fail
 const sanitizeBody = (body) => {
@@ -37,11 +38,12 @@ exports.getAllEquipment = asyncHandler(async (req, res, next) => {
   const query = {};
 
   if (req.query.search) {
+    const safeSearch = escapeRegex(req.query.search);
     query.$or = [
-      { name: { $regex: req.query.search, $options: "i" } },
-      { serialNumber: { $regex: req.query.search, $options: "i" } },
-      { category: { $regex: req.query.search, $options: "i" } },
-      { location: { $regex: req.query.search, $options: "i" } },
+      { name: { $regex: safeSearch, $options: "i" } },
+      { serialNumber: { $regex: safeSearch, $options: "i" } },
+      { category: { $regex: safeSearch, $options: "i" } },
+      { location: { $regex: safeSearch, $options: "i" } },
     ];
   }
 
