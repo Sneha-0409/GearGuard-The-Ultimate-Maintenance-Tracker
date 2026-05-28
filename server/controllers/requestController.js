@@ -9,6 +9,7 @@ const { logActivity } = require("../utils/logActivity");
 const { auditLog } = require("../utils/auditLogger");
 const NotificationService = require("../services/notificationService");
 const { calculateAndUpdateHealthScore } = require("../services/healthScoreService");
+const escapeRegex = require("../utils/escapeRegex");
 
 const decrementInventory = async (io, partsUsed) => {
   if (!partsUsed || !Array.isArray(partsUsed) || partsUsed.length === 0) return;
@@ -122,16 +123,17 @@ exports.getAllRequests = async (req, res) => {
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search);
       const matchingEquipment = await Equipment.find({
-        name: { $regex: search, $options: 'i' },
+        name: { $regex: safeSearch, $options: 'i' },
       }).select('_id');
 
       const equipmentIds = matchingEquipment.map((e) => e._id);
 
       query.$or = [
-        { subject: { $regex: search, $options: 'i' } },
-        { requestNumber: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { subject: { $regex: safeSearch, $options: 'i' } },
+        { requestNumber: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } },
         { equipmentId: { $in: equipmentIds } },
       ];
     }

@@ -1,5 +1,6 @@
 const { SparePart } = require("../models");
 const { logActivity } = require("../utils/logActivity");
+const escapeRegex = require("../utils/escapeRegex");
 
 // Get all parts in inventory with filtering/search support
 exports.getAllParts = async (req, res) => {
@@ -8,10 +9,11 @@ exports.getAllParts = async (req, res) => {
     const query = {};
 
     if (search) {
+      const safeSearch = escapeRegex(search);
       query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { sku: { $regex: search, $options: "i" } },
-        { location: { $regex: search, $options: "i" } }
+        { name: { $regex: safeSearch, $options: "i" } },
+        { sku: { $regex: safeSearch, $options: "i" } },
+        { location: { $regex: safeSearch, $options: "i" } }
       ];
     }
 

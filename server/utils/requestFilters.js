@@ -2,6 +2,8 @@
  * Request filtering utility functions
  */
 
+const escapeRegex = require('./escapeRegex');
+
 const requestFilters = {
   // Build stage query with validation
   buildStageQuery: (stage) => {
@@ -61,11 +63,13 @@ const requestFilters = {
       throw new Error('Search term must be a non-empty string');
     }
 
+    const safeSearchTerm = escapeRegex(searchTerm);
+
     return {
       $or: [
-        { subject: { $regex: searchTerm, $options: 'i' } },
-        { description: { $regex: searchTerm, $options: 'i' } },
-        { requestNumber: { $regex: searchTerm, $options: 'i' } }
+        { subject: { $regex: safeSearchTerm, $options: 'i' } },
+        { description: { $regex: safeSearchTerm, $options: 'i' } },
+        { requestNumber: { $regex: safeSearchTerm, $options: 'i' } }
       ]
     };
   },
