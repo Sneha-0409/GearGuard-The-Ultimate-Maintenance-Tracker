@@ -1,5 +1,6 @@
 const multer = require("multer");
 const fs = require("fs");
+const path = require("path");
 
 const uploadPath = "uploads/attachments";
 
@@ -14,8 +15,9 @@ const storage = multer.diskStorage({
   },
 
   filename: (req, file, cb) => {
+    const safeOriginalName = path.basename(file.originalname);
     const uniqueName =
-      Date.now() + "-" + file.originalname.replace(/\s+/g, "-");
+      Date.now() + "-" + safeOriginalName.replace(/\s+/g, "-");
 
     cb(null, uniqueName);
   },

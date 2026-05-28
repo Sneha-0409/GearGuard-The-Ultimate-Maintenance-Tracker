@@ -3,8 +3,9 @@ const express = require("express");
 const router = express.Router();
 
 const upload = require("../middleware/upload");
+const protect = require("../middleware/auth");
 
-router.post("/attachments", (req, res) => {
+router.post("/attachments", protect, (req, res) => {
   upload.array("attachments", 5)(req, res, (err) => {
     try {
       if (err) {
