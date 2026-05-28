@@ -162,6 +162,7 @@ const defineRoutes = (router) => {
   router.use("/predictive", predictiveRoutes);
   router.use("/inventory", inventoryRoutes);
   router.use("/upload", uploadRoutes);
+  router.use("/export", require("./routes/export"));
   router.use("/purchase-orders", purchaseOrderRoutes);
   router.use("/audit", auditRoutes);
   router.use("/map", mapRoutes);

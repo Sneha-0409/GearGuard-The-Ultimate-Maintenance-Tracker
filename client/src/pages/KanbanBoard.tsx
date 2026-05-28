@@ -43,6 +43,10 @@ import Spinner from "../components/Spinner";
 
 import FilterBar from "../components/FilterBar";
 
+import ExportButton from "../components/ExportButton";
+
+import { exportRequestsExcel } from "../services/exportService";
+
 const STAGES = [
   {
     id: "new",
@@ -524,17 +528,28 @@ const KanbanBoard: React.FC =
               Maintenance Requests
             </h2>
 
-            <Button
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setEditRequestId(undefined);
-                setIsModalOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4 mr-2" />
+            <div className="flex gap-2 w-full sm:w-auto">
+              <ExportButton
+                label="Export Excel"
+                onClick={() => exportRequestsExcel(
+                  Object.fromEntries(
+                    Object.entries(filters).filter(([_, v]) => v !== '')
+                  ) as Record<string, string>
+                )}
+                variant="excel"
+              />
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setEditRequestId(undefined);
+                  setIsModalOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
 
-              New Request
-            </Button>
+                New Request
+              </Button>
+            </div>
           </div>
 
           <FilterBar
