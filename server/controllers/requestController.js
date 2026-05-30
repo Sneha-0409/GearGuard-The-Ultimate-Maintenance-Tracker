@@ -183,6 +183,7 @@ exports.createRequest = async (req, res) => {
 const request = await MaintenanceRequest.create({
   ...payload,
   requestNumber,
+  createdById: req.user?._id,
   attachments:
     req.body.attachments || [],
 });
