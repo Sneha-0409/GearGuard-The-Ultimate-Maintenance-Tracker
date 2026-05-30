@@ -30,6 +30,20 @@ export const DataProvider = ({ children }) => {
         }));
     };
 
+    const toggleChecklistItem = (requestId, itemIndex) => {
+        setRequests(prev => prev.map(r => {
+            if (r.id === requestId) {
+                const updatedChecklist = [...(r.checklist || [])];
+                updatedChecklist[itemIndex] = {
+                    ...updatedChecklist[itemIndex],
+                    isCompleted: !updatedChecklist[itemIndex].isCompleted
+                };
+                return { ...r, checklist: updatedChecklist };
+            }
+            return r;
+        }));
+    };
+
     const updateEquipmentStatus = (equipId, status) => {
         setEquipment(prev => prev.map(e => e.id === equipId ? { ...e, status } : e));
     };
@@ -77,6 +91,7 @@ export const DataProvider = ({ children }) => {
         removeEquipment,
         removeRequest,
         updateRequestStage,
+        toggleChecklistItem,
         theme,
         toggleTheme
     }), [equipment, requests, teams, theme]);

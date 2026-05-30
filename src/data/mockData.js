@@ -108,6 +108,11 @@ export const REQUESTS = [
         deadline: '2025-12-30',
         company: 'GearGuard Inc.',
         hours: 0,
+        checklist: [
+            { text: 'Inspect O-rings', isCompleted: false },
+            { text: 'Replace damaged seals', isCompleted: false },
+            { text: 'Test for leaks under pressure', isCompleted: false }
+        ]
     },
     {
         id: 'r2',
@@ -121,6 +126,10 @@ export const REQUESTS = [
         priority: 'Critical',
         technician: 'Sarah J.',
         deadline: '2025-12-26',
+        checklist: [
+            { text: 'Check thermal paste', isCompleted: true },
+            { text: 'Clean fans', isCompleted: false }
+        ]
     },
     {
         id: 'r3',
@@ -134,6 +143,11 @@ export const REQUESTS = [
         priority: 'Medium',
         technician: 'Mike R.',
         deadline: '2025-12-22',
+        checklist: [
+            { text: 'Visual inspection', isCompleted: true },
+            { text: 'Lubricate moving parts', isCompleted: true },
+            { text: 'Log report', isCompleted: true }
+        ]
     },
     {
         id: 'r4',
@@ -147,5 +161,6 @@ export const REQUESTS = [
         priority: 'Medium',
         technician: 'Unassigned',
         deadline: '2026-01-02',
+        checklist: []
     },
 ];

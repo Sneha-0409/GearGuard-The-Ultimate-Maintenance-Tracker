@@ -13,8 +13,28 @@ export default function CreateRequestModal({ isOpen, onClose, initialDate }) {
         deadline: '',
         teamId: '',
         technician: 'Unassigned',
-        company: '' // Added company field
+        company: '', // Added company field
+        checklist: []
     });
+
+    const [newSubtask, setNewSubtask] = useState('');
+
+    const handleAddSubtask = () => {
+        if (newSubtask.trim()) {
+            setFormData(prev => ({
+                ...prev,
+                checklist: [...prev.checklist, { text: newSubtask.trim(), isCompleted: false }]
+            }));
+            setNewSubtask('');
+        }
+    };
+
+    const removeSubtask = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            checklist: prev.checklist.filter((_, i) => i !== index)
+        }));
+    };
 
     useEffect(() => {
         if (isOpen && initialDate) {
@@ -50,8 +70,10 @@ export default function CreateRequestModal({ isOpen, onClose, initialDate }) {
             date: new Date().toISOString().split('T')[0],
             teamId: '',
             technician: 'Unassigned',
-            company: ''
+            company: '',
+            checklist: []
         });
+        setNewSubtask('');
     };
 
     if (!isOpen) return null;
@@ -174,6 +196,41 @@ export default function CreateRequestModal({ isOpen, onClose, initialDate }) {
                                     {p === 'Critical' && <AlertTriangle size={14} />}
                                     <span className="text-sm font-medium">{p}</span>
                                 </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800">
+                        <label className="block text-sm font-medium text-slate-400 mb-1.5">Checklist (Sub-tasks)</label>
+                        <div className="flex gap-2 mb-3">
+                            <input
+                                type="text"
+                                className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-2 text-slate-200 focus:outline-none focus:border-blue-500 placeholder:text-slate-600"
+                                placeholder="Add a new sub-task..."
+                                value={newSubtask}
+                                onChange={e => setNewSubtask(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubtask(); } }}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleAddSubtask}
+                                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors font-medium text-sm"
+                            >
+                                Add
+                            </button>
+                        </div>
+                        <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                            {formData.checklist.map((task, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-slate-800/30 border border-slate-700/50 px-3 py-2 rounded-lg group">
+                                    <span className="text-sm text-slate-300">{task.text}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeSubtask(idx)}
+                                        className="text-slate-500 hover:text-red-400 transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     </div>

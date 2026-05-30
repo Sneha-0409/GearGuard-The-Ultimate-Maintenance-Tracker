@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import CreateRequestModal from '../components/CreateRequestModal';
 import ConfirmationModal from '../components/ConfirmationModal';
-import { Calendar, AlertTriangle, User, MoreHorizontal, X, Clock, CheckCircle, Trash2 } from 'lucide-react';
+import { Calendar, AlertTriangle, User, MoreHorizontal, X, Clock, CheckCircle, Trash2, Check } from 'lucide-react';
 
 const Column = ({ title, stage, count, children, onDrop, onDragOver }) => (
     <div
@@ -21,7 +21,7 @@ const Column = ({ title, stage, count, children, onDrop, onDragOver }) => (
     </div>
 );
 
-const Card = ({ request, equipmentName, teamName, category, company, onDragStart, onDelete }) => {
+const Card = ({ request, equipmentName, teamName, category, company, onDragStart, onDelete, onToggleChecklist }) => {
     const isOverdue = ['New', 'In Progress'].includes(request.stage) && new Date(request.date) < new Date('2025-12-27');
 
     return (
@@ -65,6 +65,39 @@ const Card = ({ request, equipmentName, teamName, category, company, onDragStart
                 </div>
             </div>
 
+            {request.checklist && request.checklist.length > 0 && (
+                <div className="mb-4 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sub-tasks</span>
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 rounded">
+                            {request.checklist.filter(c => c.isCompleted).length}/{request.checklist.length}
+                        </span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mb-2.5">
+                        <div 
+                            className="bg-blue-500 h-full transition-all duration-300 ease-out"
+                            style={{ width: `${(request.checklist.filter(c => c.isCompleted).length / request.checklist.length) * 100}%` }}
+                        ></div>
+                    </div>
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                        {request.checklist.map((item, idx) => (
+                            <div 
+                                key={idx}
+                                onClick={(e) => { e.stopPropagation(); onToggleChecklist(idx); }}
+                                className="flex items-start gap-2 cursor-pointer group"
+                            >
+                                <div className={`mt-0.5 min-w-[14px] w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center transition-all duration-200 ${item.isCompleted ? 'bg-blue-500 border-blue-500' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 group-hover:border-blue-400'}`}>
+                                    {item.isCompleted && <Check size={10} strokeWidth={3} className="text-white" />}
+                                </div>
+                                <span className={`text-[11px] leading-tight ${item.isCompleted ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-300'} transition-all duration-200 break-words`}>
+                                    {item.text}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between mt-auto">
                 <div className="flex items-center gap-2">
                     <div className="relative group">
@@ -96,7 +129,7 @@ const Card = ({ request, equipmentName, teamName, category, company, onDragStart
 };
 
 export default function Kanban({ viewParams, setView }) {
-    const { requests, equipment, updateRequestStage, getEquipmentName, getTeamName, removeRequest } = useData();
+    const { requests, equipment, updateRequestStage, getEquipmentName, getTeamName, removeRequest, toggleChecklistItem } = useData();
     const [filterEq, setFilterEq] = useState(viewParams?.equipmentId || null);
     const [filterPriority, setFilterPriority] = useState(viewParams?.priority || null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -219,6 +252,7 @@ export default function Kanban({ viewParams, setView }) {
                                         }}
                                         showMenu={activeMenu === req.id}
                                         onDelete={() => promptDelete(req.id)}
+                                        onToggleChecklist={(idx) => toggleChecklistItem(req.id, idx)}
                                     />
                                 );
                             })}
