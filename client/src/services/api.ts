@@ -36,11 +36,17 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      'Something went wrong';
+    let message = 'Something went wrong';
+    
+    if (error.response?.data?.message) {
+      message = error.response.data.message;
+    } else if (error.response?.data?.error) {
+      message = typeof error.response.data.error === 'string' 
+        ? error.response.data.error 
+        : error.response.data.error.message || 'Something went wrong';
+    } else if (error.message) {
+      message = error.message;
+    }
 
     toast.error(message);
 

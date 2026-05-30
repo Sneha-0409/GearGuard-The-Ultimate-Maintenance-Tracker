@@ -57,7 +57,7 @@ class NotificationService {
 
       // Emit real-time event to the specific user's socket room
       if (this.io) {
-        this.io.to(`user:${userId}`).emit('new_notification', notification);
+        this.io.to(`user:${userId}`).emit('notification:new', notification);
       }
 
       return notification;
@@ -86,7 +86,7 @@ class NotificationService {
       // Emit to the specific user's room if userId is available
       if (io) {
         if (data.userId) {
-          io.to(data.userId.toString()).emit("notification:new", notification);
+          io.to(`user:${data.userId.toString()}`).emit("notification:new", notification);
         } else {
           io.emit("notification:new", notification);
         }

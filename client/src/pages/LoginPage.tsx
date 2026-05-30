@@ -20,7 +20,11 @@ const LoginPage: React.FC = () => {
       toast.success('Logged in successfully!');
       navigate('/');
     } catch (error: any) {
-      toast.error(error.response?.data?.msg || error.response?.data?.error || 'Login failed');
+      const errData = error.response?.data;
+      const errMsg = errData?.msg || 
+                    (typeof errData?.error === 'string' ? errData.error : errData?.error?.message) || 
+                    'Login failed';
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
