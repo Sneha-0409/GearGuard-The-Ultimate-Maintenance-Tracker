@@ -34,6 +34,9 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
     licensePlate: "",
     currentMileage: 0,
     fuelType: "",
+    purchasePrice: 0,
+    expectedLifespanYears: 5,
+    salvageValue: 0,
   });
 
   const [teams, setTeams] = useState<MaintenanceTeam[]>([]);
@@ -98,6 +101,9 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
         warrantyExpiry: formData.warrantyExpiry || undefined,
         notes: formData.notes?.trim() || undefined,
         hourlyDowntimeCost: formData.hourlyDowntimeCost || 0,
+        purchasePrice: formData.purchasePrice || 0,
+        expectedLifespanYears: formData.expectedLifespanYears || 5,
+        salvageValue: formData.salvageValue || 0,
       };
 
       await equipmentService.create(payload);
@@ -282,6 +288,56 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
               value={formData.warrantyExpiry}
               onChange={(e) =>
                 setFormData({ ...formData, warrantyExpiry: e.target.value })
+              }
+              className="input-dark"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              Purchase Price ($)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.purchasePrice || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, purchasePrice: Number(e.target.value) })
+              }
+              className="input-dark"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              Expected Lifespan (Years)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={formData.expectedLifespanYears || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, expectedLifespanYears: Number(e.target.value) })
+              }
+              className="input-dark"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              Salvage Value ($)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.salvageValue || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, salvageValue: Number(e.target.value) })
               }
               className="input-dark"
             />

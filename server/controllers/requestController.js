@@ -515,7 +515,7 @@ exports.updateRequest = async (req, res) => {
 // Update request stage (for Kanban drag-and-drop)
 exports.updateRequestStage = async (req, res) => {
   try {
-    const { stage } = req.body;
+    const { stage, partsCost, laborCost } = req.body;
     const request = await MaintenanceRequest.findById(req.params.id)
       .populate("equipment")
       .populate("createdBy", "name email")
@@ -545,7 +545,11 @@ exports.updateRequestStage = async (req, res) => {
       userName: request.createdBy?.name || ""
     });
 
-    await MaintenanceRequest.findByIdAndUpdate(req.params.id, { stage });
+    const updateData = { stage };
+    if (partsCost !== undefined) updateData.partsCost = partsCost;
+    if (laborCost !== undefined) updateData.laborCost = laborCost;
+
+    await MaintenanceRequest.findByIdAndUpdate(req.params.id, updateData);
 
     if (stage === "repaired" || stage === "scrap") {
       const completedDate = new Date();

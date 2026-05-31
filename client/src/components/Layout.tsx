@@ -70,6 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { to: '/teams', icon: Users, label: t('nav.teams'), gradient: 'from-yellow-500 to-orange-600 shadow-yellow-500/20', roles: ['Admin', 'Manager', 'Technician'] },
     { to: '/activity', icon: Activity, label: t('nav.activity'), gradient: 'from-indigo-500 to-purple-600 shadow-indigo-500/20', roles: ['Admin', 'Manager', 'Technician'] },
     { to: '/analytics', icon: BarChart3, label: t('nav.analytics'), gradient: 'from-emerald-500 to-teal-600 shadow-emerald-500/20', roles: ['Admin', 'Manager'] },
+    { to: '/financials', icon: Activity, label: 'Financials', gradient: 'from-green-500 to-emerald-600 shadow-green-500/20', roles: ['Admin', 'Manager'] },
     { to: '/predictive', icon: Activity, label: t('nav.predictive') || 'Predictive Portal', gradient: 'from-rose-500 to-pink-600 shadow-rose-500/20', roles: ['Admin', 'Manager'] },
     { to: '/procurement', icon: Package, label: 'Procurement Hub', gradient: 'from-amber-500 to-yellow-600 shadow-amber-500/20', roles: ['Admin', 'Manager'] },
   ];

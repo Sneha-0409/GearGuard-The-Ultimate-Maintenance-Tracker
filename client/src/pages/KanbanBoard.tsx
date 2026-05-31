@@ -45,6 +45,7 @@ import Spinner from "../components/Spinner";
 import FilterBar from "../components/FilterBar";
 
 import ExportButton from "../components/ExportButton";
+import ClosureCostModal from "../components/ClosureCostModal";
 
 import { exportRequestsExcel } from "../services/exportService";
 
@@ -405,6 +406,7 @@ const KanbanBoard: React.FC =
     ] = useState(0);
 
     const [sortByCost, setSortByCost] = useState(false);
+    const [closureModalData, setClosureModalData] = useState<{ requestId: string, newStage: string } | null>(null);
 
     useEffect(() => {
       loadRequests();
@@ -487,25 +489,30 @@ const KanbanBoard: React.FC =
         }
       };
 
-    const handleDrop =
-      async (
-        requestId: string,
-        newStage: string
-      ) => {
+    const handleDrop = async (requestId: string, newStage: string) => {
+      if (newStage === "repaired" || newStage === "scrap") {
+        setClosureModalData({ requestId, newStage });
+      } else {
         try {
-          await requestService.updateStage(
-            requestId,
-            newStage
-          );
-
+          await requestService.updateStage(requestId, newStage);
           await loadRequests();
         } catch (error) {
-          console.error(
-            "Failed to update request stage:",
-            error
-          );
+          console.error("Failed to update request stage:", error);
         }
-      };
+      }
+    };
+
+    const handleClosureSubmit = async (partsCost: number, laborCost: number) => {
+      if (!closureModalData) return;
+      try {
+        await requestService.updateStage(closureModalData.requestId, closureModalData.newStage, partsCost, laborCost);
+        await loadRequests();
+      } catch (error) {
+        console.error("Failed to update request stage with costs:", error);
+      } finally {
+        setClosureModalData(null);
+      }
+    };
 
     const groupedRequests =
       STAGES.reduce(
@@ -646,6 +653,15 @@ const KanbanBoard: React.FC =
                 setEditRequestId(undefined);
                 loadRequests();
               }}
+            />
+          )}
+
+          {closureModalData && (
+            <ClosureCostModal
+              isOpen={!!closureModalData}
+              onClose={() => setClosureModalData(null)}
+              onSubmit={handleClosureSubmit}
+              title={`Close Request (${closureModalData.newStage === 'scrap' ? 'Scrap' : 'Repaired'})`}
             />
           )}
         </div>

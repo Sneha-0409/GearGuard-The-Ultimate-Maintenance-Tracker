@@ -18,6 +18,11 @@ export const equipmentService = {
     return response.data.data || response.data;
   },
 
+  getFinancials: async (): Promise<any[]> => {
+    const response = await api.get('/equipment/financials');
+    return response.data.data || response.data;
+  },
+
   create: async (data: CreateEquipmentDto): Promise<Equipment> => {
     const response = await api.post('/equipment', data);
     toast.success('Equipment created successfully');

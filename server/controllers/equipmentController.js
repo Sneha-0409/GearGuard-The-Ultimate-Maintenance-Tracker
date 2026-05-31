@@ -230,3 +230,76 @@ exports.getEquipmentMaintenanceHistory = asyncHandler(
     });
   },
 );
+
+// Get financial data and depreciation for all equipment
+exports.getEquipmentFinancials = asyncHandler(async (req, res, next) => {
+  const equipmentList = await Equipment.find({}).lean();
+  
+  // Aggregate maintenance costs per equipment
+  const maintenanceCosts = await MaintenanceRequest.aggregate([
+    { $group: {
+        _id: "$equipmentId",
+        totalPartsCost: { $sum: "$partsCost" },
+        totalLaborCost: { $sum: "$laborCost" },
+        requestCount: { $sum: 1 }
+    }}
+  ]);
+
+  const costsMap = new Map();
+  maintenanceCosts.forEach(item => {
+    if(item._id) {
+      costsMap.set(item._id.toString(), {
+        parts: item.totalPartsCost || 0,
+        labor: item.totalLaborCost || 0,
+        total: (item.totalPartsCost || 0) + (item.totalLaborCost || 0),
+        count: item.requestCount || 0
+      });
+    }
+  });
+
+  const financials = equipmentList.map(eq => {
+    const costData = costsMap.get(eq._id.toString()) || { parts: 0, labor: 0, total: 0, count: 0 };
+    
+    const purchasePrice = eq.purchasePrice || 0;
+    const salvageValue = eq.salvageValue || 0;
+    const lifespanYears = eq.expectedLifespanYears || 5;
+    
+    // Fallback: Use creation date if purchaseDate is missing
+    const startDate = eq.purchaseDate ? new Date(eq.purchaseDate) : new Date(eq.createdAt);
+    const now = new Date();
+    
+    let ageInYears = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    if (ageInYears < 0) ageInYears = 0;
+    
+    // Straight line depreciation
+    let depreciatedValue = purchasePrice;
+    if (purchasePrice > 0 && lifespanYears > 0) {
+      const yearlyDepreciation = (purchasePrice - salvageValue) / lifespanYears;
+      depreciatedValue = purchasePrice - (yearlyDepreciation * ageInYears);
+      if (depreciatedValue < salvageValue) depreciatedValue = salvageValue;
+    }
+    
+    // A machine is a "money pit" if its cumulative maintenance costs > 75% of its current depreciated value
+    // Only flag if depreciatedValue > 0 to avoid false positives on free/0-value equipment
+    const isMoneyPit = depreciatedValue > 0 ? (costData.total > (depreciatedValue * 0.75)) : false;
+
+    return {
+      _id: eq._id,
+      name: eq.name,
+      serialNumber: eq.serialNumber,
+      category: eq.category,
+      purchasePrice,
+      salvageValue,
+      lifespanYears,
+      ageInYears,
+      depreciatedValue,
+      maintenanceCosts: costData,
+      isMoneyPit
+    };
+  });
+
+  res.status(200).json({
+    success: true,
+    data: financials
+  });
+});

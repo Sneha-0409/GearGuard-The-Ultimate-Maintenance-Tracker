@@ -19,6 +19,7 @@ import PredictiveDashboard from './pages/PredictiveDashboard';
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
 import ProcurementDashboard from './pages/ProcurementDashboard';
 import FloorPlan from './pages/FloorPlan';
+import FinancialDashboard from './pages/FinancialDashboard';
 
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -41,6 +42,7 @@ function AppContent() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/requests" element={<KanbanBoard />} />
+        <Route path="/financials" element={<FinancialDashboard />} />
         <Route path="/requests-all" element={<RequestsPage />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/calendar" element={<CalendarView />} />

@@ -81,11 +81,13 @@ export const requestService = {
 
   updateStage: async (
     id: string,
-    stage: string
+    stage: string,
+    partsCost?: number,
+    laborCost?: number
   ): Promise<MaintenanceRequest> => {
     const response = await api.patch(
       `/requests/${id}/stage`,
-      { stage }
+      { stage, partsCost, laborCost }
     );
 
     toast.success("Request stage updated");

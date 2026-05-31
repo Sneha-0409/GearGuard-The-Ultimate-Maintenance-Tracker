@@ -7,7 +7,7 @@ import { equipmentService } from '../services/equipmentService';
 import { teamService } from '../services/teamService';
 import { uploadService } from '../services/uploadService';
 import { inventoryService } from '../services/inventoryService';
-import { Plus, Trash2, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import TicketComments from './TicketComments';
