@@ -10,7 +10,7 @@ import Spinner from './Spinner';
 import RequestModal from './RequestModal';
 import ExportButton from './ExportButton';
 import { exportEquipmentPDF } from '../services/exportService';
-import AuditTimeline from './AuditTimeline';
+import EquipmentHistoryTimeline from './EquipmentHistoryTimeline';
 import HealthRing from './HealthRing';
 import { QRCodeCanvas } from 'qrcode.react';
 import { QrCode } from 'lucide-react';
@@ -264,7 +264,7 @@ const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
             </h4>
           </div>
           <div className="bg-slate-900 rounded-lg p-6 max-h-[400px] overflow-y-auto">
-            <AuditTimeline entityType="Equipment" entityId={equipment.id || equipment._id || ''} />
+            <EquipmentHistoryTimeline history={equipment.history || []} />
           </div>
         </div>
 

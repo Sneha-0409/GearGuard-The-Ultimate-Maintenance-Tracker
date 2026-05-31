@@ -193,7 +193,13 @@ exports.createRequest = async (req, res) => {
           payload.assignedToId = equipmentDoc.defaultTechnicianId;
 
         await Equipment.findByIdAndUpdate(equipmentDoc._id, {
-          status: "under-maintenance",
+          $set: { status: "under-maintenance" },
+          $push: { history: {
+            eventType: 'STATUS_CHANGE',
+            description: `Status changed to under-maintenance (Request Created)`,
+            userId: req.user?._id,
+            userName: req.user?.name || "System"
+          }}
         });
       }
     }
@@ -369,14 +375,26 @@ exports.updateRequest = async (req, res) => {
         payload.completedDate = new Date();
         if (request.equipmentId)
           await Equipment.findByIdAndUpdate(request.equipmentId, {
-            status: "active",
+            $set: { status: "active" },
+            $push: { history: {
+              eventType: 'REPAIR_COMPLETED',
+              description: `Request marked as repaired. Status changed to active.`,
+              userId: req.user?._id,
+              userName: req.user?.name || "System"
+            }}
           });
       }
       if (payload.stage === "scrap") {
         payload.completedDate = new Date();
         if (request.equipmentId)
           await Equipment.findByIdAndUpdate(request.equipmentId, {
-            status: "scrapped",
+            $set: { status: "scrapped" },
+            $push: { history: {
+              eventType: 'SCRAPPED',
+              description: `Request marked as scrap. Status changed to scrapped.`,
+              userId: req.user?._id,
+              userName: req.user?.name || "System"
+            }}
           });
       }
     }
@@ -569,7 +587,13 @@ exports.updateRequestStage = async (req, res) => {
       if (request.equipmentId) {
         const newStatus = stage === "scrap" ? "scrapped" : "active";
         await Equipment.findByIdAndUpdate(request.equipmentId, {
-          status: newStatus,
+          $set: { status: newStatus },
+          $push: { history: {
+            eventType: stage === "scrap" ? 'SCRAPPED' : 'REPAIR_COMPLETED',
+            description: `Request stage updated to ${stage}. Status changed to ${newStatus}.`,
+            userId: req.user?._id,
+            userName: req.user?.name || "System"
+          }}
         });
       }
     }
