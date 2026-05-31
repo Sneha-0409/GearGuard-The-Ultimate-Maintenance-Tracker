@@ -159,9 +159,24 @@ exports.createEquipment = asyncHandler(async (req, res, next) => {
 exports.updateEquipment = asyncHandler(async (req, res, next) => {
   const payload = sanitizeBody(req.body);
   const oldDoc = await Equipment.findById(req.params.id);
+  let pushHistoryQuery = {};
+  if (payload.status && payload.status !== oldDoc.status) {
+    pushHistoryQuery = {
+      $push: {
+        history: {
+          eventType: 'STATUS_CHANGE',
+          description: `Status manually changed from ${oldDoc.status} to ${payload.status}`,
+          date: new Date(),
+          recordedBy: req.user?._id,
+          notes: 'Status updated manually via equipment edit'
+        }
+      }
+    };
+  }
+
   const updatedEquipment = await Equipment.findByIdAndUpdate(
     req.params.id,
-    payload,
+    { $set: payload, ...pushHistoryQuery },
     { new: true },
   )
     .populate("maintenanceTeam")
@@ -207,6 +222,9 @@ exports.deleteEquipment = asyncHandler(async (req, res, next) => {
     userId: req.user?._id,
     userName: req.user?.name || ""
   });
+
+  // Cascade delete all maintenance requests associated with this equipment
+  await MaintenanceRequest.deleteMany({ equipmentId: req.params.id });
 
   res.status(200).json({
     success: true,

@@ -193,7 +193,16 @@ exports.createRequest = async (req, res) => {
           payload.assignedToId = equipmentDoc.defaultTechnicianId;
 
         await Equipment.findByIdAndUpdate(equipmentDoc._id, {
-          status: "under-maintenance",
+          $set: { status: "under-maintenance" },
+          $push: {
+            history: {
+              eventType: 'STATUS_CHANGE',
+              description: `Status changed to under-maintenance due to new request ${requestNumber}`,
+              date: new Date(),
+              recordedBy: req.user?._id,
+              notes: 'Status updated automatically on request creation'
+            }
+          }
         });
       }
     }
@@ -367,17 +376,37 @@ exports.updateRequest = async (req, res) => {
     if (payload.stage) {
       if (payload.stage === "repaired") {
         payload.completedDate = new Date();
-        if (request.equipmentId)
+        if (request.equipmentId) {
           await Equipment.findByIdAndUpdate(request.equipmentId, {
-            status: "active",
+            $set: { status: "active" },
+            $push: {
+              history: {
+                eventType: 'STATUS_CHANGE',
+                description: `Status changed to active as request ${request.subject || request.requestNumber} was marked repaired`,
+                date: new Date(),
+                recordedBy: req.user?._id,
+                notes: 'Status updated automatically on request repaired'
+              }
+            }
           });
+        }
       }
       if (payload.stage === "scrap") {
         payload.completedDate = new Date();
-        if (request.equipmentId)
+        if (request.equipmentId) {
           await Equipment.findByIdAndUpdate(request.equipmentId, {
-            status: "scrapped",
+            $set: { status: "scrapped" },
+            $push: {
+              history: {
+                eventType: 'STATUS_CHANGE',
+                description: `Status changed to scrapped as request ${request.subject || request.requestNumber} was marked scrap`,
+                date: new Date(),
+                recordedBy: req.user?._id,
+                notes: 'Status updated automatically on request scrapped'
+              }
+            }
           });
+        }
       }
     }
 
