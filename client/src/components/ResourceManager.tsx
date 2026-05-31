@@ -6,6 +6,7 @@ import Button from './Button';
 import { Calendar, MapPin, Wrench, AlertCircle, CheckCircle, Package } from 'lucide-react';
 import Spinner from './Spinner';
 import RequestModal from './RequestModal';
+import EquipmentModal from './EquipmentModal';
 import { useNotifications } from '../contexts/NotificationContext';
 import HealthRing from './HealthRing';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -18,6 +19,7 @@ const ResourceManager = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { notifications } = useNotifications();
 
@@ -305,7 +307,7 @@ const ResourceManager = () => {
                     </span>
                   )}
                 </Button>
-                <Button variant="secondary" size="sm">
+                <Button variant="secondary" size="sm" onClick={() => setIsEditModalOpen(true)}>
                   Edit Equipment
                 </Button>
                 <Button variant="secondary" size="sm" onClick={downloadQRCode}>
@@ -330,6 +332,17 @@ const ResourceManager = () => {
             loadEquipment();
           }}
           initialEquipmentId={selectedEquipment._id ?? selectedEquipment.id}
+        />
+      )}
+      {selectedEquipment && isEditModalOpen && (
+        <EquipmentModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            loadEquipment();
+          }}
+          initialEquipment={selectedEquipment}
         />
       )}
     </div>

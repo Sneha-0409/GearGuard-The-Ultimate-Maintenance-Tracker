@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
-import { CreateEquipmentDto, MaintenanceTeam, TeamMember } from "../types";
+import { Equipment, CreateEquipmentDto, MaintenanceTeam, TeamMember } from "../types";
 import { equipmentService } from "../services/equipmentService";
 import { teamService } from "../services/teamService";
 import { Car } from "lucide-react";
@@ -10,12 +10,14 @@ interface EquipmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialEquipment?: Equipment;
 }
 
 const EquipmentModal: React.FC<EquipmentModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  initialEquipment,
 }) => {
   const [formData, setFormData] = useState<CreateEquipmentDto>({
     name: "",
@@ -60,6 +62,52 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (initialEquipment) {
+      setFormData({
+        name: initialEquipment.name || "",
+        serialNumber: initialEquipment.serialNumber || "",
+        category: initialEquipment.category || "",
+        department: initialEquipment.department || "",
+        assignedTo: initialEquipment.assignedTo || "",
+        location: initialEquipment.location || "",
+        purchaseDate: initialEquipment.purchaseDate ? initialEquipment.purchaseDate.split('T')[0] : "",
+        warrantyExpiry: initialEquipment.warrantyExpiry ? initialEquipment.warrantyExpiry.split('T')[0] : "",
+        manufacturer: initialEquipment.manufacturer || "",
+        model: initialEquipment.model || "",
+        notes: initialEquipment.notes || "",
+        maintenanceTeamId: typeof initialEquipment.maintenanceTeamId === 'string' ? initialEquipment.maintenanceTeamId : (initialEquipment.maintenanceTeamId?._id || ""),
+        defaultTechnicianId: typeof initialEquipment.defaultTechnicianId === 'string' ? initialEquipment.defaultTechnicianId : (initialEquipment.defaultTechnicianId?._id || ""),
+        licensePlate: initialEquipment.licensePlate || "",
+        currentMileage: initialEquipment.currentMileage || 0,
+        fuelType: initialEquipment.fuelType || "",
+        status: initialEquipment.status || "active",
+        hourlyDowntimeCost: initialEquipment.hourlyDowntimeCost || 0,
+      });
+    } else {
+      setFormData({
+        name: "",
+        serialNumber: "",
+        category: "",
+        department: "",
+        assignedTo: "",
+        location: "",
+        purchaseDate: "",
+        warrantyExpiry: "",
+        manufacturer: "",
+        model: "",
+        notes: "",
+        maintenanceTeamId: "",
+        defaultTechnicianId: "",
+        licensePlate: "",
+        currentMileage: 0,
+        fuelType: "",
+        status: "active",
+        hourlyDowntimeCost: 0,
+      });
+    }
+  }, [initialEquipment, isOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError("");
@@ -98,9 +146,14 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
         warrantyExpiry: formData.warrantyExpiry || undefined,
         notes: formData.notes?.trim() || undefined,
         hourlyDowntimeCost: formData.hourlyDowntimeCost || 0,
+        status: formData.status || "active",
       };
 
-      await equipmentService.create(payload);
+      if (initialEquipment && (initialEquipment.id || initialEquipment._id)) {
+        await equipmentService.update(initialEquipment.id || initialEquipment._id || "", payload);
+      } else {
+        await equipmentService.create(payload);
+      }
 
       setSubmitError("");
       onSuccess();
@@ -121,7 +174,7 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Add Equipment"
+      title={initialEquipment ? "Edit Equipment" : "Add Equipment"}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -195,6 +248,28 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
             />
           </div>
         </div>
+
+        {initialEquipment && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                Status
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.target.value })
+                }
+                className="input-dark"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="under-maintenance">Under Maintenance</option>
+                <option value="scrapped">Scrapped</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -435,7 +510,7 @@ const EquipmentModal: React.FC<EquipmentModalProps> = ({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Equipment"}
+            {isSubmitting ? "Saving..." : (initialEquipment ? "Update Equipment" : "Create Equipment")}
           </Button>
         </div>
       </form>
