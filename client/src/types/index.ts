@@ -29,8 +29,18 @@ export interface Equipment {
   healthScoreBreakdown?: { factor: string; deduction: number }[];
   mapCoordinates?: { x: number; y: number };
   hourlyDowntimeCost?: number;
+  history?: EquipmentHistoryEvent[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface EquipmentHistoryEvent {
+  _id?: string;
+  eventType: 'PURCHASED' | 'CREATED' | 'STATUS_CHANGE' | 'REPAIR_COMPLETED' | 'ASSIGNED' | 'SCRAPPED';
+  description: string;
+  timestamp: string;
+  userId?: string;
+  userName?: string;
 }
 
 export interface MaintenanceTeam {
