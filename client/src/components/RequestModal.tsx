@@ -12,6 +12,8 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import TicketComments from './TicketComments';
 import { MaintenanceRequest } from '../types';
+import ImageUploadZone from './ImageUploadZone';
+import ImageGallery from './ImageGallery';
 interface RequestModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -327,7 +329,7 @@ const RequestModal: React.FC<RequestModalProps> = ({
       // FUTURE:
       // Upload attachments here
 
-      let uploadedAttachments = [];
+      let uploadedAttachments: any[] = [];
 
 if (attachments.length > 0) {
   uploadedAttachments =
@@ -337,9 +339,10 @@ if (attachments.length > 0) {
 }
 
 if (editRequestId) {
+  const finalAttachments = [...(existingRequest?.attachments || []), ...uploadedAttachments];
   await requestService.update(editRequestId, {
     ...formData,
-    // Add logic if attachments are updated in edit mode
+    attachments: finalAttachments,
   });
 } else {
   await requestService.create({
@@ -737,49 +740,28 @@ if (editRequestId) {
 
         {/* Attachments */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
             Attachments
           </label>
 
-          <input
-            type="file"
-            multiple
-            accept=".png,.jpg,.jpeg,.pdf"
-            onChange={handleFileChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          />
-
-          <p className="text-xs text-gray-500 mt-1">
-            Upload up to 5
-            images/PDFs (max 5MB
-            each)
-          </p>
-
-          {attachments.length >
-            0 && (
-            <div className="mt-3 space-y-2">
-              {attachments.map(
-                (file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between px-3 py-2 bg-gray-100 rounded-md"
-                  >
-                    <span className="text-sm truncate text-gray-900 dark:text-white">
-                      {file.name}
-                    </span>
-
-                    <span className="text-xs text-gray-500">
-                      {(
-                        file.size /
-                        1024
-                      ).toFixed(1)}{' '}
-                      KB
-                    </span>
-                  </div>
-                )
-              )}
+          {existingRequest?.attachments && existingRequest.attachments.length > 0 && (
+            <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800">
+              <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Existing Attachments</h4>
+              <ImageGallery attachments={existingRequest.attachments} />
             </div>
           )}
+
+          <div className="mt-2">
+            <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">
+              Upload New Attachments
+            </h4>
+            <ImageUploadZone 
+              files={attachments} 
+              onChange={setAttachments} 
+              maxFiles={5} 
+              maxSizeMB={5} 
+            />
+          </div>
         </div>
 
         {/* Scheduled Date */}
