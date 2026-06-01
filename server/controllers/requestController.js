@@ -14,6 +14,12 @@ const escapeRegex = require("../utils/escapeRegex");
 const generateRequestNumber = require("../utils/generateRequestNumber");
 const fs = require('fs');
 const path = require('path');
+const { mongoose } = require('../config/database');
+
+function getGridFSBucket() {
+  if (!mongoose.connection.db) throw new Error("Database not connected");
+  return new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'attachments' });
+}
 
 const decrementInventory = async (io, partsUsed) => {
   if (!partsUsed || !Array.isArray(partsUsed) || partsUsed.length === 0) return;
@@ -1311,17 +1317,41 @@ exports.uploadAttachments = async (req, res) => {
       return res.status(400).json({ error: "No files uploaded" });
     }
 
-    const uploadedFiles = req.files.map((file) => ({
-      filename: file.filename,
-      fileUrl: `/uploads/attachments/${file.filename}`,
-      fileType: file.mimetype,
-    }));
+    const bucket = getGridFSBucket();
+    const uploadedFiles = [];
+
+    for (const file of req.files) {
+      const safeOriginalName = path.basename(file.originalname);
+      const uniqueName = Date.now() + "-" + safeOriginalName.replace(/\s+/g, "-");
+
+      const uploadStream = bucket.openUploadStream(uniqueName, {
+        contentType: file.mimetype,
+      });
+
+      await new Promise((resolve, reject) => {
+        uploadStream.end(file.buffer, (error) => {
+          if (error) return reject(error);
+          resolve();
+        });
+      });
+
+      // We need an ObjectId for the subdocument before saving so we can construct the URL
+      const attachmentId = new mongoose.Types.ObjectId();
+
+      uploadedFiles.push({
+        _id: attachmentId,
+        filename: uniqueName, // The GridFS filename
+        fileUrl: `/api/requests/${request._id}/attachments/${attachmentId}`,
+        fileType: file.mimetype,
+      });
+    }
 
     request.attachments = [...(request.attachments || []), ...uploadedFiles];
     await request.save();
 
     res.status(200).json(uploadedFiles);
   } catch (error) {
+    console.error("Upload error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1345,20 +1375,19 @@ exports.downloadAttachment = async (req, res) => {
     const attachment = request.attachments.id(req.params.attachmentId);
     if (!attachment) return res.status(404).json({ error: "Attachment not found" });
 
-    const filePath = path.join(__dirname, "..", "uploads", "attachments", attachment.filename);
+    const bucket = getGridFSBucket();
+    const files = await bucket.find({ filename: attachment.filename }).toArray();
+
+    if (!files || files.length === 0) {
+      return res.status(404).json({ error: "File not found in GridFS" });
+    }
+
+    res.set('Content-Type', attachment.fileType);
+    // Use inline to allow browser to view images/pdfs directly
+    res.set('Content-Disposition', `inline; filename="${attachment.filename}"`);
     
-    // Path traversal check
-    const uploadsDir = path.resolve(__dirname, "..", "uploads", "attachments");
-    const resolvedFilePath = path.resolve(filePath);
-    if (!resolvedFilePath.startsWith(uploadsDir)) {
-      return res.status(403).json({ error: "Invalid file path" });
-    }
-
-    if (!fs.existsSync(resolvedFilePath)) {
-      return res.status(404).json({ error: "File not found on disk" });
-    }
-
-    res.download(resolvedFilePath, attachment.filename);
+    const downloadStream = bucket.openDownloadStreamByName(attachment.filename);
+    downloadStream.pipe(res);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1376,13 +1405,13 @@ exports.deleteAttachment = async (req, res) => {
     const attachment = request.attachments.id(req.params.attachmentId);
     if (!attachment) return res.status(404).json({ error: "Attachment not found" });
 
-    const filePath = path.join(__dirname, "..", "uploads", "attachments", attachment.filename);
-    
-    // Path traversal check
-    const uploadsDir = path.resolve(__dirname, "..", "uploads", "attachments");
-    const resolvedFilePath = path.resolve(filePath);
-    if (resolvedFilePath.startsWith(uploadsDir) && fs.existsSync(resolvedFilePath)) {
-      fs.unlinkSync(resolvedFilePath);
+    const bucket = getGridFSBucket();
+    const files = await bucket.find({ filename: attachment.filename }).toArray();
+
+    if (files && files.length > 0) {
+      for (const f of files) {
+        await bucket.delete(f._id);
+      }
     }
 
     request.attachments.pull(req.params.attachmentId);
