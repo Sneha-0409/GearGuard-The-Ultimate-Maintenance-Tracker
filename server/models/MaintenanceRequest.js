@@ -12,6 +12,8 @@ const MaintenanceRequestSchema = new Schema({
   completedDate: { type: Date },
   duration: { type: Number },
   cost: { type: Number },
+  partsCost: { type: Number, default: 0 },
+  laborCost: { type: Number, default: 0 },
   notes: { type: String },
   overdueNotified: {
     type: Boolean,

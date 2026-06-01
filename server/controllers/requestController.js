@@ -176,6 +176,15 @@ exports.createRequest = async (req, res) => {
 
         await Equipment.findByIdAndUpdate(equipmentDoc._id, {
           $set: { status: "under-maintenance" },
+          $push: {
+            history: {
+              eventType: 'STATUS_CHANGE',
+              description: `Status changed to under-maintenance due to new request ${requestNumber}`,
+              date: new Date(),
+              recordedBy: req.user?._id,
+              notes: 'Status updated automatically on request creation'
+            }
+          }
           $push: { history: {
             eventType: 'STATUS_CHANGE',
             description: `Status changed to under-maintenance (Request Created)`,
@@ -356,9 +365,18 @@ exports.updateRequest = async (req, res) => {
     if (payload.stage) {
       if (payload.stage === "repaired") {
         payload.completedDate = new Date();
-        if (request.equipmentId)
+        if (request.equipmentId) {
           await Equipment.findByIdAndUpdate(request.equipmentId, {
             $set: { status: "active" },
+            $push: {
+              history: {
+                eventType: 'STATUS_CHANGE',
+                description: `Status changed to active as request ${request.subject || request.requestNumber} was marked repaired`,
+                date: new Date(),
+                recordedBy: req.user?._id,
+                notes: 'Status updated automatically on request repaired'
+              }
+            }
             $push: { history: {
               eventType: 'REPAIR_COMPLETED',
               description: `Request marked as repaired. Status changed to active.`,
@@ -366,12 +384,22 @@ exports.updateRequest = async (req, res) => {
               userName: req.user?.name || "System"
             }}
           });
+        }
       }
       if (payload.stage === "scrap") {
         payload.completedDate = new Date();
-        if (request.equipmentId)
+        if (request.equipmentId) {
           await Equipment.findByIdAndUpdate(request.equipmentId, {
             $set: { status: "scrapped" },
+            $push: {
+              history: {
+                eventType: 'STATUS_CHANGE',
+                description: `Status changed to scrapped as request ${request.subject || request.requestNumber} was marked scrap`,
+                date: new Date(),
+                recordedBy: req.user?._id,
+                notes: 'Status updated automatically on request scrapped'
+              }
+            }
             $push: { history: {
               eventType: 'SCRAPPED',
               description: `Request marked as scrap. Status changed to scrapped.`,
@@ -379,6 +407,7 @@ exports.updateRequest = async (req, res) => {
               userName: req.user?.name || "System"
             }}
           });
+        }
       }
     }
 
@@ -516,7 +545,7 @@ exports.updateRequest = async (req, res) => {
 // Update request stage (for Kanban drag-and-drop)
 exports.updateRequestStage = async (req, res) => {
   try {
-    const { stage } = req.body;
+    const { stage, partsCost, laborCost } = req.body;
     const request = await MaintenanceRequest.findById(req.params.id)
       .populate("equipment")
       .populate("createdBy", "name email")
@@ -546,7 +575,11 @@ exports.updateRequestStage = async (req, res) => {
       userName: request.createdBy?.name || ""
     });
 
-    await MaintenanceRequest.findByIdAndUpdate(req.params.id, { stage });
+    const updateData = { stage };
+    if (partsCost !== undefined) updateData.partsCost = partsCost;
+    if (laborCost !== undefined) updateData.laborCost = laborCost;
+
+    await MaintenanceRequest.findByIdAndUpdate(req.params.id, updateData);
 
     if (stage === "repaired" || stage === "scrap") {
       const completedDate = new Date();

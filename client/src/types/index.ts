@@ -10,6 +10,9 @@ export interface Equipment {
   assignedTo?: string;
   location: string;
   purchaseDate?: string;
+  purchasePrice?: number;
+  expectedLifespanYears?: number;
+  salvageValue?: number;
   warrantyExpiry?: string;
   manufacturer?: string;
   model?: string;
@@ -85,6 +88,8 @@ export interface MaintenanceRequest {
   completedDate?: string;
   duration?: number;
   cost?: number;
+  partsCost?: number;
+  laborCost?: number;
   notes?: string;
   equipmentId?: string;
   equipment?: Equipment;
@@ -101,7 +106,6 @@ export interface MaintenanceRequest {
     authorName: string;
     content?: string;
     audioUrl?: string;
-    audioDuration?: number;
     audioDuration?: number;
     timestamp: string;
   }[];
@@ -120,6 +124,9 @@ export interface CreateEquipmentDto {
   assignedTo?: string;
   location: string;
   purchaseDate?: string;
+  purchasePrice?: number;
+  expectedLifespanYears?: number;
+  salvageValue?: number;
   warrantyExpiry?: string;
   manufacturer?: string;
   model?: string;
@@ -173,6 +180,34 @@ export interface Notification {
 export interface NotificationsResponse {
   notifications: Notification[];
   unreadCount: number;
+}
+
+export interface EquipmentHistoryEvent {
+  _id?: string;
+  eventType: 'PURCHASED' | 'CREATED' | 'STATUS_CHANGE' | 'REPAIR_COMPLETED' | 'ASSIGNED' | 'SCRAPPED';
+  description: string;
+  timestamp: string;
+  userId?: string;
+  userName?: string;
+}
+
+export interface EquipmentFinancials {
+  _id: string;
+  name: string;
+  serialNumber?: string;
+  category: string;
+  purchasePrice: number;
+  salvageValue: number;
+  lifespanYears: number;
+  ageInYears: number;
+  depreciatedValue: number;
+  maintenanceCosts: {
+    parts: number;
+    labor: number;
+    total: number;
+    count: number;
+  };
+  isMoneyPit: boolean;
 }
 
 export interface RequestFilters {

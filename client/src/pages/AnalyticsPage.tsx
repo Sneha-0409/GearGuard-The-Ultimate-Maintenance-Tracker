@@ -274,7 +274,7 @@ const AnalyticsPage: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" tickFormatter={(val) => `$${val}`} />
                 <YAxis type="category" dataKey="category" width={80} />
-                <Tooltip formatter={(value: number) => [`$${value}`, 'Lost Revenue']} />
+                <Tooltip formatter={(value: any) => [`$${value}`, 'Lost Revenue']} />
                 <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>

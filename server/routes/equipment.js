@@ -12,6 +12,9 @@ router.use(protect);
 // GET all equipment (any logged-in user)
 router.get('/', equipmentController.getAllEquipment);
 
+// GET equipment financials (Admin + Manager)
+router.get('/financials', authorizeRoles("Admin", "Manager"), equipmentController.getEquipmentFinancials);
+
 // GET single equipment
 router.get('/:id', equipmentController.getEquipmentById);
 
