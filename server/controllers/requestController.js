@@ -11,6 +11,8 @@ const NotificationService = require("../services/notificationService");
 const { calculateAndUpdateHealthScore } = require("../services/healthScoreService");
 const escapeRegex = require("../utils/escapeRegex");
 const generateRequestNumber = require("../utils/generateRequestNumber");
+const fs = require('fs');
+const path = require('path');
 
 const decrementInventory = async (io, partsUsed) => {
   if (!partsUsed || !Array.isArray(partsUsed) || partsUsed.length === 0) return;
@@ -182,15 +184,11 @@ exports.createRequest = async (req, res) => {
               description: `Status changed to under-maintenance due to new request ${requestNumber}`,
               date: new Date(),
               recordedBy: req.user?._id,
+              userId: req.user?._id,
+              userName: req.user?.name || "System",
               notes: 'Status updated automatically on request creation'
             }
           }
-          $push: { history: {
-            eventType: 'STATUS_CHANGE',
-            description: `Status changed to under-maintenance (Request Created)`,
-            userId: req.user?._id,
-            userName: req.user?.name || "System"
-          }}
         });
       }
     }
@@ -374,15 +372,11 @@ exports.updateRequest = async (req, res) => {
                 description: `Status changed to active as request ${request.subject || request.requestNumber} was marked repaired`,
                 date: new Date(),
                 recordedBy: req.user?._id,
+                userId: req.user?._id,
+                userName: req.user?.name || "System",
                 notes: 'Status updated automatically on request repaired'
               }
             }
-            $push: { history: {
-              eventType: 'REPAIR_COMPLETED',
-              description: `Request marked as repaired. Status changed to active.`,
-              userId: req.user?._id,
-              userName: req.user?.name || "System"
-            }}
           });
         }
       }
@@ -397,15 +391,11 @@ exports.updateRequest = async (req, res) => {
                 description: `Status changed to scrapped as request ${request.subject || request.requestNumber} was marked scrap`,
                 date: new Date(),
                 recordedBy: req.user?._id,
+                userId: req.user?._id,
+                userName: req.user?.name || "System",
                 notes: 'Status updated automatically on request scrapped'
               }
             }
-            $push: { history: {
-              eventType: 'SCRAPPED',
-              description: `Request marked as scrap. Status changed to scrapped.`,
-              userId: req.user?._id,
-              userName: req.user?.name || "System"
-            }}
           });
         }
       }
@@ -1242,6 +1232,110 @@ exports.addPartToRequest = async (req, res) => {
     }
 
     res.status(200).json(request);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const isAuthorizedForRequest = (request, user) => {
+  if (user.role === 'Admin' || user.role === 'Manager') return true;
+  if (request.assignedToId && request.assignedToId.toString() === user._id.toString()) return true;
+  if (request.createdById && request.createdById.toString() === user._id.toString()) return true;
+  if (request.createdBy && request.createdBy.toString() === user._id.toString()) return true; 
+  return false;
+};
+
+exports.uploadAttachments = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    if (!isAuthorizedForRequest(request, req.user)) {
+      return res.status(403).json({ error: "Not authorized to upload attachments for this request" });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
+    const uploadedFiles = req.files.map((file) => ({
+      filename: file.filename,
+      fileUrl: `/uploads/attachments/${file.filename}`,
+      fileType: file.mimetype,
+    }));
+
+    request.attachments = [...(request.attachments || []), ...uploadedFiles];
+    await request.save();
+
+    res.status(200).json(uploadedFiles);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.listAttachments = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    res.status(200).json(request.attachments || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.downloadAttachment = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    const attachment = request.attachments.id(req.params.attachmentId);
+    if (!attachment) return res.status(404).json({ error: "Attachment not found" });
+
+    const filePath = path.join(__dirname, "..", "uploads", "attachments", attachment.filename);
+    
+    // Path traversal check
+    const uploadsDir = path.resolve(__dirname, "..", "uploads", "attachments");
+    const resolvedFilePath = path.resolve(filePath);
+    if (!resolvedFilePath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: "Invalid file path" });
+    }
+
+    if (!fs.existsSync(resolvedFilePath)) {
+      return res.status(404).json({ error: "File not found on disk" });
+    }
+
+    res.download(resolvedFilePath, attachment.filename);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteAttachment = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    if (!isAuthorizedForRequest(request, req.user)) {
+      return res.status(403).json({ error: "Not authorized to delete attachments for this request" });
+    }
+
+    const attachment = request.attachments.id(req.params.attachmentId);
+    if (!attachment) return res.status(404).json({ error: "Attachment not found" });
+
+    const filePath = path.join(__dirname, "..", "uploads", "attachments", attachment.filename);
+    
+    // Path traversal check
+    const uploadsDir = path.resolve(__dirname, "..", "uploads", "attachments");
+    const resolvedFilePath = path.resolve(filePath);
+    if (resolvedFilePath.startsWith(uploadsDir) && fs.existsSync(resolvedFilePath)) {
+      fs.unlinkSync(resolvedFilePath);
+    }
+
+    request.attachments.pull(req.params.attachmentId);
+    await request.save();
+
+    res.status(200).json({ message: "Attachment deleted" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

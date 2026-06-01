@@ -170,5 +170,25 @@ export const requestService = {
   reservePart: async (requestId: string, partId: string, quantityUsed: number = 1): Promise<MaintenanceRequest> => {
     const response = await api.post(`/requests/${requestId}/parts`, { partId, quantityUsed });
     return response.data;
+  },
+
+  uploadAttachments: async (requestId: string, files: File[]): Promise<any[]> => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('attachments', file);
+    });
+
+    const response = await api.post(`/requests/${requestId}/attachments`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    toast.success("Attachments uploaded successfully");
+    return response.data;
+  },
+
+  deleteAttachment: async (requestId: string, attachmentId: string): Promise<void> => {
+    await api.delete(`/requests/${requestId}/attachments/${attachmentId}`);
+    toast.success("Attachment deleted successfully");
   }
 };

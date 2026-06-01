@@ -21,9 +21,15 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  Edit2,
+  Eye,
 } from "lucide-react";
 
-const DetailedRequestsTable = () => {
+interface DetailedRequestsTableProps {
+  onEdit?: (id: string) => void;
+}
+
+const DetailedRequestsTable: React.FC<DetailedRequestsTableProps> = ({ onEdit }) => {
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -358,8 +364,29 @@ const DetailedRequestsTable = () => {
                     </Badge>
                   </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button className="text-blue-600 hover:text-blue-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-3 items-center">
+                    {onEdit && (
+                       <button 
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onEdit(request.id || request._id || '');
+                         }}
+                         className="flex items-center text-indigo-600 hover:text-indigo-900 font-medium transition-colors"
+                         title="Edit Request"
+                       >
+                         <Edit2 className="w-4 h-4 mr-1" />
+                         Edit
+                       </button>
+                    )}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedRow(expandedRow === request.id ? null : request.id);
+                      }}
+                      className="flex items-center text-blue-600 hover:text-blue-900 font-medium transition-colors"
+                      title={expandedRow === request.id ? "Collapse Details" : "View Details"}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
                       {expandedRow === request.id ? "Collapse" : "Expand"}
                     </button>
                   </td>
