@@ -179,6 +179,7 @@ exports.updateEquipment = asyncHandler(async (req, res, next) => {
         }
       }
     };
+  }
   
   if (!oldDoc) {
     throw new ErrorHandler("Equipment not found", ERROR_TYPES.NOT_FOUND_ERROR);

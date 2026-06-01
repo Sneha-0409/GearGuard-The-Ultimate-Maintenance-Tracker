@@ -28,7 +28,6 @@ const memberRoutes = require("./routes/members");
 const requestRoutes = require("./routes/requests");
 const notificationRoutes = require("./routes/notifications");
 const adminRoutes = require("./routes/admin");
-const uploadRoutes = require("./routes/uploadRoutes");
 const searchRoutes = require("./routes/search");
 const inventoryRoutes = require("./routes/inventory");
 const analyticsRoutes = require("./routes/analytics");
@@ -167,7 +166,6 @@ const defineRoutes = (router) => {
   router.use("/analytics", analyticsRoutes);
   router.use("/predictive", predictiveRoutes);
   router.use("/inventory", inventoryRoutes);
-  router.use("/upload", uploadRoutes);
   router.use("/export", require("./routes/export"));
   router.use("/purchase-orders", purchaseOrderRoutes);
   router.use("/audit", auditRoutes);

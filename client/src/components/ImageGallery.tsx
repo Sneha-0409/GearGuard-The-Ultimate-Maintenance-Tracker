@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, FileText, Download } from 'lucide-react';
+import { X, FileText, Download, Trash2 } from 'lucide-react';
 
 interface Attachment {
+  _id?: string;
   filename: string;
   fileUrl: string;
   fileType: string;
@@ -9,9 +10,10 @@ interface Attachment {
 
 interface ImageGalleryProps {
   attachments: Attachment[];
+  onDelete?: (id: string) => void;
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ attachments }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ attachments, onDelete }) => {
   const [selectedImage, setSelectedImage] = useState<Attachment | null>(null);
 
   if (!attachments || attachments.length === 0) {
@@ -46,14 +48,30 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ attachments }) => {
                   <FileText className="w-8 h-8 text-gray-500 dark:text-gray-400" />
                 </div>
               )}
-              <span className="text-xs truncate w-full text-center text-gray-700 dark:text-gray-300 font-medium px-1">
+              <span className="text-xs truncate w-full text-center text-gray-700 dark:text-gray-300 font-medium px-1 mt-1">
                 {attachment.filename}
               </span>
-              {!isImage && (
-                <div className="absolute top-3 right-3 p-1 bg-white dark:bg-gray-900 rounded-full shadow-sm">
-                   <Download className="w-3 h-3 text-blue-500" />
-                </div>
-              )}
+              
+              {/* Overlay Actions */}
+              <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!isImage && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); window.open(getFullUrl(attachment.fileUrl), '_blank'); }}
+                    className="p-1.5 bg-white dark:bg-gray-900 rounded-full shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                     <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  </button>
+                )}
+                
+                {onDelete && attachment._id && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onDelete(attachment._id!); }}
+                    className="p-1.5 bg-white dark:bg-gray-900 rounded-full shadow-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group/del"
+                  >
+                     <Trash2 className="w-3.5 h-3.5 text-red-500 group-hover/del:text-red-600" />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}

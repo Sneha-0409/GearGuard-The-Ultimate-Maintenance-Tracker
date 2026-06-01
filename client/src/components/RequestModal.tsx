@@ -5,7 +5,6 @@ import { CreateMaintenanceRequestDto, Equipment, MaintenanceTeam, TeamMember, Sp
 import { requestService } from '../services/requestService';
 import { equipmentService } from '../services/equipmentService';
 import { teamService } from '../services/teamService';
-import { uploadService } from '../services/uploadService';
 import { inventoryService } from '../services/inventoryService';
 import { Plus, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -328,42 +327,48 @@ const RequestModal: React.FC<RequestModalProps> = ({
     setLoading(true);
 
     try {
-      // FUTURE:
-      // Upload attachments here
+      if (editRequestId) {
+        await requestService.update(editRequestId, {
+          ...formData,
+        });
 
-      let uploadedAttachments: any[] = [];
+        if (attachments.length > 0) {
+          await requestService.uploadAttachments(editRequestId, attachments);
+        }
+      } else {
+        const newRequest = await requestService.create({
+          ...formData,
+          partsUsed: selectedParts.filter(p => p.partId && p.quantityUsed > 0),
+        });
 
-if (attachments.length > 0) {
-  uploadedAttachments =
-    await uploadService.uploadAttachments(
-      attachments
-    );
-}
-
-if (editRequestId) {
-  const finalAttachments = [...(existingRequest?.attachments || []), ...uploadedAttachments];
-  await requestService.update(editRequestId, {
-    ...formData,
-    attachments: finalAttachments,
-  });
-} else {
-  await requestService.create({
-    ...formData,
-    attachments: uploadedAttachments,
-    partsUsed: selectedParts.filter(p => p.partId && p.quantityUsed > 0),
-  });
-}
+        if (attachments.length > 0 && newRequest._id) {
+          await requestService.uploadAttachments(newRequest._id, attachments);
+        }
+      }
 
       onSuccess();
     } catch (error) {
       console.error(
-        'Failed to create request:',
+        'Failed to create/update request:',
         error
       );
 
-      alert('Failed to create request');
+      alert('Failed to save request');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!editRequestId) return;
+    try {
+      await requestService.deleteAttachment(editRequestId, attachmentId);
+      setExistingRequest(prev => prev ? {
+        ...prev,
+        attachments: prev.attachments?.filter(a => (a as any)._id !== attachmentId)
+      } : prev);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -801,7 +806,10 @@ if (editRequestId) {
           {existingRequest?.attachments && existingRequest.attachments.length > 0 && (
             <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800">
               <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Existing Attachments</h4>
-              <ImageGallery attachments={existingRequest.attachments} />
+              <ImageGallery 
+                attachments={existingRequest.attachments} 
+                onDelete={handleDeleteAttachment} 
+              />
             </div>
           )}
 
@@ -858,8 +866,8 @@ if (editRequestId) {
             disabled={loading}
           >
             {loading
-              ? 'Creating...'
-              : 'Create Request'}
+              ? 'Saving...'
+              : (editRequestId ? 'Save Changes' : 'Create Request')}
           </Button>
         </div>
       </form>
