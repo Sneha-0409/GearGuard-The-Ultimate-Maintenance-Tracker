@@ -111,6 +111,11 @@ export interface MaintenanceRequest {
   }[];
   downtimeDurationHours?: number;
   totalDowntimeCost?: number;
+  attachments?: {
+    filename: string;
+    fileUrl: string;
+    fileType: string;
+  }[];
   checklist?: { _id?: string; text: string; isCompleted: boolean }[];
   createdAt?: string;
   updatedAt?: string;
