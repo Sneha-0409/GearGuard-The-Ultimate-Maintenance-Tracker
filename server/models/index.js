@@ -12,6 +12,7 @@ const PurchaseOrder = require('./PurchaseOrder');
 const Webhook = require('./Webhook');
 const PreventiveSchedule = require('./PreventiveSchedule');
 const ShiftHandover = require('./ShiftHandover');
+const Counter = require('./Counter');
 
 const syncDatabase = async () => {
   try {
@@ -33,6 +34,7 @@ const syncDatabase = async () => {
         Webhook.createIndexes ? Webhook.createIndexes() : Promise.resolve(),
         PreventiveSchedule.createIndexes ? PreventiveSchedule.createIndexes() : Promise.resolve(),
         ShiftHandover.createIndexes ? ShiftHandover.createIndexes() : Promise.resolve()
+        Counter.createIndexes ? Counter.createIndexes() : Promise.resolve()
       ]);
     } catch (idxErr) {
       // ignore index creation errors
@@ -60,4 +62,5 @@ module.exports = {
   Webhook,
   PreventiveSchedule,
   ShiftHandover
+  Counter
 };

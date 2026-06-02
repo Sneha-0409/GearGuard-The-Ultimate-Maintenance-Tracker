@@ -42,7 +42,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { t } = useTranslation();
   const isOnline = useNetworkStatus();
 
-  const { user, logout } = useAuth();
+  const { user, logout, logoutAll } = useAuth();
 
   useEffect(() => {
     syncManager.init(); // Initialize the sync manager listener
@@ -67,6 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { to: '/requests-all', icon: List, label: t('nav.allRequests'), gradient: 'from-pink-500 to-rose-600 shadow-pink-500/20', roles: ['Admin', 'Manager', 'Technician'] },
     { to: '/shift-handovers', icon: Activity, label: 'Shift Logbook', gradient: 'from-amber-400 to-orange-500 shadow-amber-500/20', roles: ['Admin', 'Manager', 'Technician'] },
     { to: '/calendar', icon: Calendar, label: t('nav.calendar'), gradient: 'from-cyan-500 to-blue-600 shadow-cyan-500/20', roles: ['Admin', 'Manager', 'Technician'] },
+    { to: '/downtime', icon: Activity, label: 'Downtime Schedule', gradient: 'from-blue-400 to-indigo-500 shadow-blue-500/20', roles: ['Admin', 'Manager', 'Technician'] },
     { to: '/equipment', icon: Box, label: t('nav.equipment'), gradient: 'from-green-500 to-emerald-600 shadow-green-500/20', roles: ['Admin', 'Manager', 'Technician'] },
     { to: '/floor-plan', icon: Map, label: 'Floor Plan', gradient: 'from-sky-500 to-indigo-500 shadow-sky-500/20', roles: ['Admin', 'Manager', 'Technician'] },
     { to: '/inventory', icon: Package, label: t('nav.inventory') || 'Inventory', gradient: 'from-teal-500 to-emerald-600 shadow-teal-500/20', roles: ['Admin', 'Manager', 'Technician'] },
@@ -93,8 +94,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         .slice(0, 2)
     : "GU";
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -263,6 +264,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </button>
 
                   <div className="h-px bg-slate-200 dark:bg-slate-700 my-1"></div>
+
+                  <button
+                    onClick={async () => {
+                      setSettingsOpen(false);
+                      await logoutAll();
+                      navigate('/');
+                    }}
+                    className="flex w-full items-center px-4 py-2 text-sm font-bold text-left text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout All Devices
+                  </button>
 
                   <button
                     onClick={handleLogout}

@@ -166,6 +166,20 @@ exports.createEquipment = asyncHandler(async (req, res, next) => {
 exports.updateEquipment = asyncHandler(async (req, res, next) => {
   const payload = sanitizeBody(req.body);
   const oldDoc = await Equipment.findById(req.params.id);
+  let pushHistoryQuery = {};
+  if (payload.status && payload.status !== oldDoc.status) {
+    pushHistoryQuery = {
+      $push: {
+        history: {
+          eventType: 'STATUS_CHANGE',
+          description: `Status manually changed from ${oldDoc.status} to ${payload.status}`,
+          date: new Date(),
+          recordedBy: req.user?._id,
+          notes: 'Status updated manually via equipment edit'
+        }
+      }
+    };
+  }
   
   if (!oldDoc) {
     throw new ErrorHandler("Equipment not found", ERROR_TYPES.NOT_FOUND_ERROR);
