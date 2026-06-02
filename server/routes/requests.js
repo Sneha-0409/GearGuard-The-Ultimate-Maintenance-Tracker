@@ -3,6 +3,7 @@ const router = express.Router();
 const requestController = require('../controllers/requestController');
 const protect = require('../middleware/auth');
 const { authorizeRoles } = require('../middleware/role');
+const upload = require('../middleware/upload');
 
 router.use(protect);
 
@@ -18,5 +19,12 @@ router.post('/:id/smart-assign', requestController.smartAssignRequest);
 router.get('/:id/predictions', requestController.predictSpareParts);
 router.post('/:id/parts', requestController.addPartToRequest);
 router.delete('/:id', authorizeRoles('Admin', 'Manager'), requestController.deleteRequest);
+
+// Attachments
+router.post('/:id/attachments', upload.array('attachments', 5), requestController.uploadAttachments);
+router.get('/:id/attachments', requestController.listAttachments);
+router.get('/:id/attachments/:attachmentId', requestController.downloadAttachment);
+router.delete('/:id/attachments/:attachmentId', requestController.deleteAttachment);
+
 
 module.exports = router;

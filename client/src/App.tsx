@@ -50,6 +50,7 @@ function AppContent() {
         <Route path="/requests-all" element={<RequestsPage />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/calendar" element={<CalendarView />} />
+        <Route path="/downtime" element={<DowntimeGantt />} />
         <Route path="/floor-plan" element={<FloorPlan />} />
         <Route path="/equipment" element={<EquipmentList />} />
         <Route path="/inventory" element={<InventoryList />} />

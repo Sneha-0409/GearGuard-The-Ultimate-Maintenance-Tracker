@@ -21,27 +21,45 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  Edit2,
+  Eye,
 } from "lucide-react";
 
-const DetailedRequestsTable = () => {
+interface DetailedRequestsTableProps {
+  onEdit?: (id: string) => void;
+}
+
+const DetailedRequestsTable: React.FC<DetailedRequestsTableProps> = ({ onEdit }) => {
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
-
   const [loading, setLoading] = useState(true);
-  type SortField = "createdAt" | "priority" | "stage";
 
+  type SortField = "createdAt" | "priority" | "stage";
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [page, limit, sortField, sortDirection]);
 
   const loadRequests = async () => {
+    setLoading(true);
     try {
-      const data = await requestService.getAll();
+      const data = await requestService.getAll({
+        page,
+        limit,
+        sortBy: sortField,
+        sortOrder: sortDirection,
+      });
 
-      setRequests(data);
+      setRequests(data.items);
+      setTotalItems(data.totalItems);
+      setTotalPages(data.totalPages);
     } catch (error) {
       console.error("Failed to load requests:", error);
     } finally {
@@ -67,26 +85,7 @@ const DetailedRequestsTable = () => {
     return request[field];
   };
 
-  const sortedRequests = [...requests].sort((a, b) => {
-    const aValue = getSortValue(a, sortField);
-    const bValue = getSortValue(b, sortField);
-
-    if (aValue === undefined) return 1;
-    if (bValue === undefined) return -1;
-
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return sortDirection === "asc"
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    }
-
-    const aNum = typeof aValue === 'number' ? aValue : 0;
-    const bNum = typeof bValue === 'number' ? bValue : 0;
-
-    return sortDirection === "asc"
-      ? aNum - bNum
-      : bNum - aNum;
-  });
+  const sortedRequests = requests; // Already sorted by backend
 
   const handleExport = () => {
     if (!sortedRequests || sortedRequests.length === 0) return;
@@ -358,8 +357,29 @@ const DetailedRequestsTable = () => {
                     </Badge>
                   </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button className="text-blue-600 hover:text-blue-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-3 items-center">
+                    {onEdit && (
+                       <button 
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onEdit(request.id || request._id || '');
+                         }}
+                         className="flex items-center text-indigo-600 hover:text-indigo-900 font-medium transition-colors"
+                         title="Edit Request"
+                       >
+                         <Edit2 className="w-4 h-4 mr-1" />
+                         Edit
+                       </button>
+                    )}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedRow(expandedRow === request.id ? null : request.id);
+                      }}
+                      className="flex items-center text-blue-600 hover:text-blue-900 font-medium transition-colors"
+                      title={expandedRow === request.id ? "Collapse Details" : "View Details"}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
                       {expandedRow === request.id ? "Collapse" : "Expand"}
                     </button>
                   </td>
@@ -449,6 +469,49 @@ const DetailedRequestsTable = () => {
           </div>
         )}
       </div>
+
+      {!loading && totalItems > 0 && (
+        <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+            <span>Showing {(page - 1) * limit + 1} to {Math.min(page * limit, totalItems)} of {totalItems} results</span>
+            <span className="mx-4">|</span>
+            <span>Rows per page:</span>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="ml-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Page {page} of {totalPages}
+            </span>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

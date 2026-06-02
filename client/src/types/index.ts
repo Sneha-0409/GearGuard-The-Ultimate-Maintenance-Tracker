@@ -1,5 +1,13 @@
 import { SparePart, PartUsedInput } from './inventory';
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export interface Equipment {
   _id?: string;
   id: string;
@@ -111,6 +119,11 @@ export interface MaintenanceRequest {
   }[];
   downtimeDurationHours?: number;
   totalDowntimeCost?: number;
+  attachments?: {
+    filename: string;
+    fileUrl: string;
+    fileType: string;
+  }[];
   checklist?: { _id?: string; text: string; isCompleted: boolean }[];
   createdAt?: string;
   updatedAt?: string;
@@ -211,14 +224,18 @@ export interface EquipmentFinancials {
 }
 
 export interface RequestFilters {
-  stage: string;
-  type: string;
-  priority: string;
-  teamId: string;
-  assignedToId: string;
-  startDate: string;
-  endDate: string;
-  search: string;
+  stage?: string;
+  type?: string;
+  priority?: string;
+  teamId?: string;
+  assignedToId?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export const defaultFilters: RequestFilters = {
@@ -230,6 +247,10 @@ export const defaultFilters: RequestFilters = {
   startDate: '',
   endDate: '',
   search: '',
+  page: 1,
+  limit: 20,
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
 };
 
 export interface SearchEquipmentResult {
