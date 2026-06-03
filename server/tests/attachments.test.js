@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const app = require('../index');
 const { MaintenanceRequest, Equipment } = require('../models');
-const User = require('../models/User');
+const User = require('../models/user');
 
 describe('Attachments API', () => {
   jest.setTimeout(30000);
@@ -64,7 +64,7 @@ describe('Attachments API', () => {
   });
 
   afterAll(async () => {
-    await User.deleteMany({ email: { $in: ['tech_attach@test.com', 'admin_attach@test.com'] } });
+    await User.deleteMany({ email: { $in: ['tech_attach@test.com', 'admin_attach@test.com', 'other_tech@test.com'] } });
     await MaintenanceRequest.deleteMany({ requestNumber: 'REQ-999999-9999' });
     await mongoose.connection.close();
     if (mongoServer) {
