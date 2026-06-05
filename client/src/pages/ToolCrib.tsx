@@ -7,6 +7,9 @@ import Badge from '../components/Badge';
 import { Tool } from '../types';
 import toast from 'react-hot-toast';
 import { request } from '../utils/api';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
 
 const ToolCrib: React.FC = () => {
   const { t } = useTranslation();
@@ -22,6 +25,18 @@ const ToolCrib: React.FC = () => {
 
   useEffect(() => {
     fetchTools();
+
+    const socket = io(SOCKET_URL, {
+      auth: { token: localStorage.getItem('gearguard_token') }
+    });
+
+    socket.on('tools_changed', () => {
+      fetchTools();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const fetchTools = async () => {

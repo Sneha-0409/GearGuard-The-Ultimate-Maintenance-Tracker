@@ -17,6 +17,10 @@ exports.createTool = asyncHandler(async (req, res, next) => {
     throw new ErrorHandler("Name and serial number are required", ERROR_TYPES.VALIDATION_ERROR);
   }
   const tool = await Tool.create(req.body);
+  
+  const io = req.app.get("socketio");
+  if (io) io.emit("tools_changed");
+
   res.status(201).json({
     success: true,
     data: tool
@@ -31,6 +35,10 @@ exports.updateTool = asyncHandler(async (req, res, next) => {
   if (!tool) {
     throw new ErrorHandler("Tool not found", ERROR_TYPES.NOT_FOUND_ERROR);
   }
+
+  const io = req.app.get("socketio");
+  if (io) io.emit("tools_changed");
+
   res.status(200).json({
     success: true,
     data: tool
@@ -42,6 +50,10 @@ exports.deleteTool = asyncHandler(async (req, res, next) => {
   if (!tool) {
     throw new ErrorHandler("Tool not found", ERROR_TYPES.NOT_FOUND_ERROR);
   }
+
+  const io = req.app.get("socketio");
+  if (io) io.emit("tools_changed");
+
   res.status(200).json({
     success: true,
     data: {}
