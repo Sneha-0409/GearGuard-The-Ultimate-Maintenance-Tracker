@@ -155,6 +155,10 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(passport.initialize());
 
+// Apply threat intelligence IPS
+const { threatIntelligence } = require('./middleware/threatIntel');
+app.use(threatIntelligence);
+
 // Apply global rate limiter to all routes
 app.use(globalLimiter);
 

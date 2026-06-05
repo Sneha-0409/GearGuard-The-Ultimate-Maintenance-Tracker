@@ -72,6 +72,9 @@ const csrfProtection = (req, res, next) => {
     return next();
   }
 
+  const { triggerTripwire } = require('./threatIntel');
+  triggerTripwire(req, 'CSRF_VIOLATION');
+
   console.warn(`[CSRF] Blocked ${req.method} ${req.originalUrl} from origin "${candidate || referer}"`);
 
   return res.status(403).json({
