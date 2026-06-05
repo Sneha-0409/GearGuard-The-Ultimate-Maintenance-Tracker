@@ -176,15 +176,6 @@ exports.createRequest = async (req, res) => {
 
         await Equipment.findByIdAndUpdate(equipmentDoc._id, {
           $set: { status: "under-maintenance" },
-          $push: {
-            history: {
-              eventType: 'STATUS_CHANGE',
-              description: `Status changed to under-maintenance due to new request ${requestNumber}`,
-              date: new Date(),
-              recordedBy: req.user?._id,
-              notes: 'Status updated automatically on request creation'
-            }
-          }
           $push: { history: {
             eventType: 'STATUS_CHANGE',
             description: `Status changed to under-maintenance (Request Created)`,
@@ -368,15 +359,6 @@ exports.updateRequest = async (req, res) => {
         if (request.equipmentId) {
           await Equipment.findByIdAndUpdate(request.equipmentId, {
             $set: { status: "active" },
-            $push: {
-              history: {
-                eventType: 'STATUS_CHANGE',
-                description: `Status changed to active as request ${request.subject || request.requestNumber} was marked repaired`,
-                date: new Date(),
-                recordedBy: req.user?._id,
-                notes: 'Status updated automatically on request repaired'
-              }
-            }
             $push: { history: {
               eventType: 'REPAIR_COMPLETED',
               description: `Request marked as repaired. Status changed to active.`,
@@ -391,15 +373,6 @@ exports.updateRequest = async (req, res) => {
         if (request.equipmentId) {
           await Equipment.findByIdAndUpdate(request.equipmentId, {
             $set: { status: "scrapped" },
-            $push: {
-              history: {
-                eventType: 'STATUS_CHANGE',
-                description: `Status changed to scrapped as request ${request.subject || request.requestNumber} was marked scrap`,
-                date: new Date(),
-                recordedBy: req.user?._id,
-                notes: 'Status updated automatically on request scrapped'
-              }
-            }
             $push: { history: {
               eventType: 'SCRAPPED',
               description: `Request marked as scrap. Status changed to scrapped.`,
@@ -574,6 +547,12 @@ exports.updateRequestStage = async (req, res) => {
       userId: req.user?._id,
       userName: request.createdBy?.name || ""
     });
+
+    if (stage === "in-progress" && request.equipment?.lotoRequired) {
+      if (!request.lotoAudit || !request.lotoAudit.isCompleted) {
+        return res.status(400).json({ error: "LOTO Safety Audit is required before starting work on this equipment." });
+      }
+    }
 
     const updateData = { stage };
     if (partsCost !== undefined) updateData.partsCost = partsCost;
@@ -1241,6 +1220,31 @@ exports.addPartToRequest = async (req, res) => {
       await NotificationService.notifyRequestChange(io, "request_updated", updatedReq, `Part ${part.name} added and checked out.`);
     }
 
+    res.status(200).json(request);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.submitLOTO = async (req, res) => {
+  try {
+    const { checklistResponses, proofImageUrl } = req.body;
+    const request = await MaintenanceRequest.findById(req.params.id).populate('equipment');
+    
+    if (!request) return res.status(404).json({ error: "Request not found" });
+    if (!request.equipment?.lotoRequired) {
+      return res.status(400).json({ error: "LOTO is not required for this equipment." });
+    }
+
+    request.lotoAudit = {
+      isCompleted: true,
+      completedAt: new Date(),
+      completedBy: req.user?._id,
+      proofImageUrl,
+      checklistResponses
+    };
+
+    await request.save();
     res.status(200).json(request);
   } catch (error) {
     res.status(500).json({ error: error.message });

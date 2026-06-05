@@ -46,6 +46,7 @@ import FilterBar from "../components/FilterBar";
 
 import ExportButton from "../components/ExportButton";
 import ClosureCostModal from "../components/ClosureCostModal";
+import LOTOModal from "../components/LOTOModal";
 
 import { exportRequestsExcel } from "../services/exportService";
 
@@ -422,6 +423,7 @@ const KanbanBoard: React.FC =
 
     const [sortByCost, setSortByCost] = useState(false);
     const [closureModalData, setClosureModalData] = useState<{ requestId: string, newStage: string } | null>(null);
+    const [lotoModalData, setLotoModalData] = useState<{ request: MaintenanceRequest } | null>(null);
 
     useEffect(() => {
       loadRequests();
@@ -505,6 +507,16 @@ const KanbanBoard: React.FC =
       };
 
     const handleDrop = async (requestId: string, newStage: string) => {
+      const request = requests.find(r => r.id === requestId || r._id === requestId);
+      if (!request) return;
+
+      if (newStage === "in-progress" && request.equipment?.lotoRequired) {
+        if (!request.lotoAudit?.isCompleted) {
+          setLotoModalData({ request });
+          return;
+        }
+      }
+
       if (newStage === "repaired" || newStage === "scrap") {
         setClosureModalData({ requestId, newStage });
       } else {
@@ -677,6 +689,24 @@ const KanbanBoard: React.FC =
               onClose={() => setClosureModalData(null)}
               onSubmit={handleClosureSubmit}
               title={`Close Request (${closureModalData.newStage === 'scrap' ? 'Scrap' : 'Repaired'})`}
+            />
+          )}
+
+          {lotoModalData && (
+            <LOTOModal
+              isOpen={!!lotoModalData}
+              onClose={() => setLotoModalData(null)}
+              onSuccess={async () => {
+                setLotoModalData(null);
+                // After successful LOTO, we can automatically transition to in-progress
+                try {
+                  await requestService.updateStage(lotoModalData.request.id || lotoModalData.request._id || "", "in-progress");
+                  await loadRequests();
+                } catch (e) {
+                  console.error("Failed to move to in-progress after LOTO", e);
+                }
+              }}
+              requestRecord={lotoModalData.request}
             />
           )}
         </div>

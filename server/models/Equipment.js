@@ -68,6 +68,13 @@ const EquipmentSchema = new Schema({
     type: Number,
     default: 0
   },
+  lotoRequired: {
+    type: Boolean,
+    default: false
+  },
+  lotoChecklist: [{
+    type: String
+  }],
   history: [{
     eventType: { type: String, enum: ['PURCHASED', 'CREATED', 'STATUS_CHANGE', 'REPAIR_COMPLETED', 'ASSIGNED', 'SCRAPPED'], required: true },
     description: { type: String, required: true },

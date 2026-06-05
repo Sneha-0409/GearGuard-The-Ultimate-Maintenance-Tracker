@@ -179,6 +179,7 @@ exports.updateEquipment = asyncHandler(async (req, res, next) => {
         }
       }
     };
+  }
   
   if (!oldDoc) {
     throw new ErrorHandler("Equipment not found", ERROR_TYPES.NOT_FOUND_ERROR);
@@ -212,9 +213,8 @@ exports.updateEquipment = asyncHandler(async (req, res, next) => {
 
   const updatedEquipment = await Equipment.findByIdAndUpdate(
     req.params.id,
-    { $set: payload, ...pushHistoryQuery },
     updateQuery,
-    { new: true },
+    { new: true, runValidators: true }
   )
     .populate("maintenanceTeam")
     .populate("defaultTechnician");
