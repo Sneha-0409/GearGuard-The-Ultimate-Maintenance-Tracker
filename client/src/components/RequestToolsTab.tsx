@@ -6,6 +6,9 @@ import Button from './Button';
 import Badge from './Badge';
 import { Wrench, Loader2 } from 'lucide-react';
 import Spinner from './Spinner';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
 
 interface RequestToolsTabProps {
   requestRecord: MaintenanceRequest;
@@ -20,6 +23,19 @@ const RequestToolsTab: React.FC<RequestToolsTabProps> = ({ requestRecord, onUpda
 
   useEffect(() => {
     fetchAvailableTools();
+
+    const socket = io(SOCKET_URL, {
+      auth: { token: localStorage.getItem('gearguard_token') }
+    });
+
+    socket.on('tools_changed', () => {
+      fetchAvailableTools();
+      onUpdate(); // Re-fetch the request record to reflect checkout/returns across clients if they affect this ticket
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [requestRecord]);
 
   const fetchAvailableTools = async () => {

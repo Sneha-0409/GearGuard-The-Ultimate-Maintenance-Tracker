@@ -203,34 +203,6 @@ exports.createRequest = async (req, res) => {
     const payload = sanitizeBody(req.body);
     const requestNumber = await generateRequestNumber();
 
-    let equipmentDoc = null;
-    let oldEquipmentStatus = null;
-
-    if (payload.equipmentId) {
-      equipmentDoc = await Equipment.findById(payload.equipmentId)
-        .populate("maintenanceTeam")
-        .populate("defaultTechnician");
-
-      if (equipmentDoc) {
-        oldEquipmentStatus = equipmentDoc.status;
-
-        if (!payload.teamId && equipmentDoc.maintenanceTeamId)
-          payload.teamId = equipmentDoc.maintenanceTeamId;
-        if (!payload.assignedToId && equipmentDoc.defaultTechnicianId)
-          payload.assignedToId = equipmentDoc.defaultTechnicianId;
-
-        await Equipment.findByIdAndUpdate(equipmentDoc._id, {
-          $set: { status: "under-maintenance" },
-          $push: {
-            history: {
-              eventType: 'STATUS_CHANGE',
-              description: `Status changed to under-maintenance due to new request ${requestNumber}`,
-              date: new Date(),
-              recordedBy: req.user?._id,
-              notes: 'Status updated automatically on request creation'
-            }
-          }
-        });
     const requestWithRelations = await withTransactionFallback(async (session) => {
       let equipmentDoc = null;
       let oldEquipmentStatus = null;
@@ -269,21 +241,6 @@ exports.createRequest = async (req, res) => {
           );
         }
       }
-
-const request = await MaintenanceRequest.create({
-  ...payload,
-  requestNumber,
-  createdById: req.user?._id,
-  slaDeadline: calculateSLA(payload.priority || 'medium'),
-  attachments:
-    req.body.attachments || [],
-});
-    const requestWithRelations = await MaintenanceRequest.findById(request._id)
-      .populate("equipment")
-      .populate("team")
-      .populate("assignedTo", "name email")
-      .populate("createdBy", "name email")
-      .populate("partsUsed.partId");
       const request = await MaintenanceRequest.create([{
         ...payload,
         requestNumber,
@@ -431,49 +388,7 @@ exports.updateRequest = async (req, res) => {
     const prevRequest = await MaintenanceRequest.findById(req.params.id);
     if (!prevRequest) return res.status(404).json({ error: "Request not found" });
 
-    const request = await MaintenanceRequest.findById(req.params.id)
-      .populate("equipment")
-      .populate("createdBy", "name email");
-
-    if (!request) return res.status(404).json({ error: "Request not found" });
-
-    const prevStage = request.stage;
-    const prevPriority = request.priority;
-
-    // Handle stage side-effects (equipment status updates)
-    if (payload.stage) {
-      if (payload.stage === "repaired") {
-        payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
-            $set: { status: "active" },
-            $push: {
-              history: {
-                eventType: 'STATUS_CHANGE',
-                description: `Status changed to active as request ${request.subject || request.requestNumber} was marked repaired`,
-                date: new Date(),
-                recordedBy: req.user?._id,
-                notes: 'Status updated automatically on request repaired'
-              }
-            }
-          });
-        }
-      }
-      if (payload.stage === "scrap") {
-        payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
-            $set: { status: "scrapped" },
-            $push: {
-              history: {
-                eventType: 'STATUS_CHANGE',
-                description: `Status changed to scrapped as request ${request.subject || request.requestNumber} was marked scrap`,
-                date: new Date(),
-                recordedBy: req.user?._id,
-                notes: 'Status updated automatically on request scrapped'
-              }
-            }
-          });
+    // Non-transactional block removed
     const prevStage = prevRequest.stage;
     const prevPriority = prevRequest.priority;
     
@@ -1437,23 +1352,33 @@ exports.checkoutTool = async (req, res) => {
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
 
-    const tool = await Tool.findById(toolId);
-    if (!tool) return res.status(404).json({ error: "Tool not found" });
-
-    if (tool.status !== 'Available') {
-      return res.status(400).json({ error: "Tool is not available for checkout" });
+    // Atomic update acts as a distributed lock
+    const tool = await Tool.findOneAndUpdate(
+      { _id: toolId, status: 'Available' },
+      { status: 'Checked Out' },
+      { new: true }
+    );
+    
+    if (!tool) {
+      return res.status(400).json({ error: "Tool is not available for checkout or does not exist" });
     }
-
-    tool.status = 'Checked Out';
-    await tool.save();
 
     request.checkedOutTools.push({ toolId: tool._id, checkedOutAt: new Date() });
     await request.save();
+
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit('tools_changed');
+    }
 
     const updatedReq = await MaintenanceRequest.findById(request._id)
       .populate('checkedOutTools.toolId');
 
     res.status(200).json(updatedReq);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 const isAuthorizedForRequest = (request, user) => {
   if (user.role === 'Admin' || user.role === 'Manager') return true;
   if (request.assignedToId && request.assignedToId.toString() === user._id.toString()) return true;
@@ -1531,19 +1456,28 @@ exports.returnTool = async (req, res) => {
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
 
-    const tool = await Tool.findById(toolId);
-    if (!tool) return res.status(404).json({ error: "Tool not found" });
-
     request.checkedOutTools = request.checkedOutTools.filter(t => t.toolId.toString() !== toolId);
     await request.save();
 
-    tool.status = 'Available';
-    await tool.save();
+    const tool = await Tool.findOneAndUpdate(
+      { _id: toolId },
+      { status: 'Available' },
+      { new: true }
+    );
+
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit('tools_changed');
+    }
 
     const updatedReq = await MaintenanceRequest.findById(request._id)
       .populate('checkedOutTools.toolId');
 
     res.status(200).json(updatedReq);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 exports.downloadAttachment = async (req, res) => {
   try {
     const request = await MaintenanceRequest.findById(req.params.id);
