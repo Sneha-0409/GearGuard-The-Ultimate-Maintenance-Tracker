@@ -44,6 +44,9 @@ exports.getPartById = async (req, res) => {
 exports.createPart = async (req, res) => {
   try {
     const payload = { ...req.body };
+    if (payload.quantityInStock < 0 || payload.minReorderThreshold < 0) {
+      return res.status(400).json({ error: "Inventory quantities cannot be negative." });
+    }
     if (payload.quantityInStock !== undefined && payload.minReorderThreshold !== undefined) {
       payload.reorderStatus = payload.quantityInStock <= payload.minReorderThreshold ? 'low-stock' : 'ok';
     }
@@ -76,6 +79,10 @@ exports.updatePart = async (req, res) => {
     const quantity = payload.quantityInStock !== undefined ? payload.quantityInStock : prevPart.quantityInStock;
     const threshold = payload.minReorderThreshold !== undefined ? payload.minReorderThreshold : prevPart.minReorderThreshold;
     
+    if (quantity < 0 || threshold < 0) {
+      return res.status(400).json({ error: "Inventory quantities cannot be negative." });
+    }
+
     if (quantity > threshold) {
       payload.reorderStatus = 'ok';
     } else if (prevPart.reorderStatus === 'ok') {

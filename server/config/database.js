@@ -4,11 +4,26 @@ require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env') });
 
 const envUri = process.env.MONGO_URI || process.env.MONGO_URL;
 
+// Register global multi-tenant isolation plugin
+const multiTenantPlugin = require('../plugins/multiTenantPlugin');
+mongoose.plugin(multiTenantPlugin);
+
 const seedMockData = async () => {
   try {
-    const { Equipment, MaintenanceTeam, TeamMember, MaintenanceRequest, SparePart } = require('../models');
+    const { Equipment, MaintenanceTeam, TeamMember, MaintenanceRequest, SparePart, Organization } = require('../models');
     const User = require('../models/user');
     const bcrypt = require('bcryptjs');
+    const { asyncLocalStorage } = require('../middleware/tenantContext');
+
+    let defaultOrg = await Organization.findOne({ name: 'GearGuard Internal' });
+    if (!defaultOrg) {
+      defaultOrg = await Organization.create({ name: 'GearGuard Internal', billingStatus: 'active' });
+    }
+
+    // Run the rest of the seeding inside the tenant context
+    await new Promise((resolve, reject) => {
+      asyncLocalStorage.run({ tenantId: defaultOrg._id, role: 'SystemAdmin' }, async () => {
+        try {
     
     // Seed Spare Parts
     const partCount = await SparePart.countDocuments();
@@ -168,6 +183,16 @@ const seedMockData = async () => {
       ]
     });
 
+          await User.updateMany({ organizationId: { $exists: false } }, { $set: { organizationId: defaultOrg._id } });
+          await Equipment.updateMany({ organizationId: { $exists: false } }, { $set: { organizationId: defaultOrg._id } });
+
+          console.log('✓ Database synced successfully');
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
     console.log('✓ Mock data successfully seeded.');
   } catch (err) {
     console.error('✗ Failed to seed mock data:', err.message || err);

@@ -13,8 +13,8 @@ const {
 } = require("../utils/errorHandler");
 const { asyncHandler } = require("../middleware/errorHandler");
 
-const generateAccessToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "15m" });
+const generateAccessToken = (id, role, organizationId) => {
+  return jwt.sign({ id, role, organizationId }, process.env.JWT_SECRET, { expiresIn: "15m" });
 };
 
 const hashToken = (token) => {
@@ -140,8 +140,8 @@ exports.login = asyncHandler(async (req, res, next) => {
     await user.save();
   }
 
-  // Generate tokens
-  const accessToken = generateAccessToken(user._id, user.role);
+  // Generate access token with organizationId
+  const accessToken = generateAccessToken(user._id, user.role, user.organizationId);
   const refreshToken = crypto.randomBytes(40).toString("hex");
   const refreshTokenHash = hashToken(refreshToken);
 
@@ -236,7 +236,7 @@ exports.refresh = asyncHandler(async (req, res, next) => {
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
-  const newAccessToken = generateAccessToken(session.userId._id, session.userId.role);
+  const newAccessToken = generateAccessToken(session.userId._id, session.userId.role, session.userId.organizationId);
 
   res.status(200).json({
     success: true,
