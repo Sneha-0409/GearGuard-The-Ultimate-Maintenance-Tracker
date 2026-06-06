@@ -79,7 +79,9 @@ const MaintenanceRequestSchema = new Schema({
   },
   downtimeDurationHours: { type: Number, default: 0 },
   totalDowntimeCost: { type: Number, default: 0 },
-  syncId: { type: String, default: null } // UUID from offline device to prevent replay attacks or resolve conflicts
+  syncId: { type: String, default: null }, // UUID from offline device to prevent replay attacks or resolve conflicts
+  rootCause: { type: String }, // Used by the RCA logic tree wizard
+  rcaNodeId: { type: Schema.Types.ObjectId, ref: 'DiagnosticNode' } // Final leaf node of the RCA tree
 }, { timestamps: true });
 
 MaintenanceRequestSchema.virtual('equipment', {
