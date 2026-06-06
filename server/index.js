@@ -46,6 +46,7 @@ const telemetryRoutes = require("./routes/telemetry");
 const syncRoutes = require("./routes/sync");
 const toolRoutes = require("./routes/toolRoutes");
 const taskRoutes = require("./routes/tasks");
+const diagnosticsRoutes = require("./routes/diagnostics");
 
 console.log("ENV CHECK");
 console.log("MONGO_URI:", process.env.MONGO_URI ? "Set" : "Not Set");
@@ -266,6 +267,7 @@ const defineRoutes = (router) => {
   router.use("/sync", syncRoutes);
   router.use("/tools", toolRoutes);
   router.use("/tasks", taskRoutes);
+  router.use("/diagnostics", diagnosticsRoutes);
 };
 
 const v1Router = express.Router();
