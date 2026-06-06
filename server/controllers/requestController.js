@@ -28,9 +28,9 @@ const decrementInventory = async (io, partsUsed) => {
     const partId = item.partId?._id || item.partId;
     if (!partId) continue;
     try {
-      // Atomic decrement prevents concurrency data loss
-      const updatedPart = await SparePart.findByIdAndUpdate(
-        partId,
+      // Atomic decrement prevents concurrency data loss and prevents negative stock
+      const updatedPart = await SparePart.findOneAndUpdate(
+        { _id: partId, quantityInStock: { $gte: item.quantityUsed } },
         { $inc: { quantityInStock: -item.quantityUsed } },
         { new: true }
       );
@@ -1369,11 +1369,19 @@ exports.addPartToRequest = async (req, res) => {
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
 
-    const part = await SparePart.findById(partId);
-    if (!part) return res.status(404).json({ error: "Part not found" });
-
     const qty = quantityUsed || 1;
-    if (part.quantityInStock < qty) {
+
+    // Use findOneAndUpdate to atomically check and decrement stock to prevent race conditions
+    const updatedPart = await SparePart.findOneAndUpdate(
+      { _id: partId, quantityInStock: { $gte: qty } },
+      { $inc: { quantityInStock: -qty } },
+      { new: true }
+    );
+
+    if (!updatedPart) {
+      // Check if the part exists to return an appropriate error
+      const partExists = await SparePart.findById(partId);
+      if (!partExists) return res.status(404).json({ error: "Part not found" });
       return res.status(400).json({ error: "Insufficient stock" });
     }
 
@@ -1386,11 +1394,10 @@ exports.addPartToRequest = async (req, res) => {
 
     await request.save();
 
-    part.quantityInStock -= qty;
-    if (part.quantityInStock <= part.minReorderThreshold && part.reorderStatus === 'ok') {
-      part.reorderStatus = 'low-stock';
+    if (updatedPart.quantityInStock <= updatedPart.minReorderThreshold && updatedPart.reorderStatus === 'ok') {
+      updatedPart.reorderStatus = 'low-stock';
+      await updatedPart.save();
     }
-    await part.save();
 
     const io = req.app.get("socketio");
     if (io) {
