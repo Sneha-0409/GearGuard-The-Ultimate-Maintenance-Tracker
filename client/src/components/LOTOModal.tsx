@@ -50,6 +50,8 @@ const LOTOModal: React.FC<LOTOModalProps> = ({
       setIsSubmitting(true);
       
       // Upload photo
+      const attachments = await requestService.uploadAttachments(requestRecord._id || requestRecord.id, [file]);
+      const proofImageUrl = `/api/requests/${requestRecord._id || requestRecord.id}/attachments/${attachments[0]._id}`;
       const attachments = await requestService.uploadAttachments(requestRecord.id || requestRecord._id, [file]);
       const proofImageUrl = attachments[0].fileUrl;
 
