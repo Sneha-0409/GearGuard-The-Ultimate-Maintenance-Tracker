@@ -26,6 +26,17 @@ const EquipmentSchema = new Schema({
     x: { type: Number },
     y: { type: Number }
   },
+  geoLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    }
+  },
   floorPlanId: { type: Schema.Types.ObjectId, ref: 'FloorPlan' },
   
   healthScore: {
@@ -74,6 +85,7 @@ const EquipmentSchema = new Schema({
   },
   lotoChecklist: [{
     type: String
+  }],
   documents: [{
     title: { type: String, required: true },
     fileUrl: { type: String, required: true },
@@ -107,6 +119,8 @@ EquipmentSchema.virtual('defaultTechnician', {
 
 EquipmentSchema.set('toObject', { virtuals: true });
 EquipmentSchema.set('toJSON', { virtuals: true });
+
+EquipmentSchema.index({ geoLocation: '2dsphere' });
 
 
 

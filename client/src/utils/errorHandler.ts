@@ -87,47 +87,54 @@ export const handleApiError = (error: unknown): ApiError => {
 
     const { status, data } = axiosError.response;
     const statusCode = status;
+    
+    const extractMessage = (defaultMsg: string) => {
+      if (typeof data?.message === 'string') return data.message;
+      if (typeof data?.error === 'string') return data.error;
+      if (data?.error?.message && typeof data.error.message === 'string') return data.error.message;
+      return defaultMsg;
+    };
 
     // Handle specific status codes
     switch (statusCode) {
       case 400:
         return {
-          message: data?.message || data?.error || 'Invalid request. Please check your input.',
+          message: extractMessage('Invalid request. Please check your input.'),
           statusCode,
           type: 'validation',
         };
 
       case 401:
         return {
-          message: data?.message || data?.error || 'Invalid email or password',
+          message: extractMessage('Invalid email or password'),
           statusCode,
           type: 'authentication',
         };
 
       case 403:
         return {
-          message: data?.message || data?.error || 'Access denied. You do not have permission.',
+          message: extractMessage('Access denied. You do not have permission.'),
           statusCode,
           type: 'authentication',
         };
 
       case 404:
         return {
-          message: data?.message || data?.error || 'Resource not found',
+          message: extractMessage('Resource not found'),
           statusCode,
           type: 'validation',
         };
 
       case 422:
         return {
-          message: data?.message || data?.error || 'Validation failed. Please check your input.',
+          message: extractMessage('Validation failed. Please check your input.'),
           statusCode,
           type: 'validation',
         };
 
       case 429:
         return {
-          message: data?.message || 'Too many requests. Please wait a moment and try again.',
+          message: extractMessage('Too many requests. Please wait a moment and try again.'),
           statusCode,
           type: 'validation',
         };
@@ -137,14 +144,14 @@ export const handleApiError = (error: unknown): ApiError => {
       case 503:
       case 504:
         return {
-          message: data?.message || 'Server error. Please try again later.',
+          message: extractMessage('Server error. Please try again later.'),
           statusCode,
           type: 'server',
         };
 
       default:
         return {
-          message: data?.message || data?.error || 'Something went wrong. Please try again.',
+          message: extractMessage('Something went wrong. Please try again.'),
           statusCode,
           type: 'unknown',
         };

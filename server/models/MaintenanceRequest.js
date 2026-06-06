@@ -6,7 +6,7 @@ const MaintenanceRequestSchema = new Schema({
   requestNumber: { type: String, required: true, unique: true },
   subject: { type: String, required: true },
   description: { type: String },
-  type: { type: String, enum: ['corrective', 'preventive'], default: 'corrective' },
+  type: { type: String, enum: ['corrective', 'preventive', 'predictive'], default: 'corrective' },
   stage: { type: String, enum: ['new', 'in-progress', 'repaired', 'scrap'], default: 'new' },
   priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
   scheduledDate: { type: Date },

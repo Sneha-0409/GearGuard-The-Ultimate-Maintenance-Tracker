@@ -5,6 +5,9 @@ const {
   TeamMember,
   SparePart,
   Tool,
+  ToolAuditLog,
+  Notification,
+  Webhook,
 } = require("../models");
 const { logActivity } = require("../utils/logActivity");
 const { auditLog } = require("../utils/auditLogger");
@@ -28,9 +31,9 @@ const decrementInventory = async (io, partsUsed) => {
     const partId = item.partId?._id || item.partId;
     if (!partId) continue;
     try {
-      // Atomic decrement prevents concurrency data loss
-      const updatedPart = await SparePart.findByIdAndUpdate(
-        partId,
+      // Atomic decrement prevents concurrency data loss and prevents negative stock
+      const updatedPart = await SparePart.findOneAndUpdate(
+        { _id: partId, quantityInStock: { $gte: item.quantityUsed } },
         { $inc: { quantityInStock: -item.quantityUsed } },
         { new: true }
       );
@@ -220,31 +223,7 @@ exports.createRequest = async (req, res) => {
     const payload = sanitizeBody(req.body);
     const requestNumber = await generateRequestNumber();
 
-    let equipmentDoc = null;
-    let oldEquipmentStatus = null;
 
-    if (payload.equipmentId) {
-      equipmentDoc = await Equipment.findById(payload.equipmentId)
-        .populate("maintenanceTeam")
-        .populate("defaultTechnician");
-
-      if (equipmentDoc) {
-        oldEquipmentStatus = equipmentDoc.status;
-
-        if (!payload.teamId && equipmentDoc.maintenanceTeamId)
-          payload.teamId = equipmentDoc.maintenanceTeamId;
-        if (!payload.assignedToId && equipmentDoc.defaultTechnicianId)
-          payload.assignedToId = equipmentDoc.defaultTechnicianId;
-
-        await Equipment.findByIdAndUpdate(equipmentDoc._id, {
-          $set: { status: "under-maintenance" },
-          $push: { history: {
-            eventType: 'STATUS_CHANGE',
-            description: `Status changed to under-maintenance (Request Created)`,
-            userId: req.user?._id,
-            userName: req.user?.name || "System"
-          }}
-        });
     const requestWithRelations = await withTransactionFallback(async (session) => {
       let equipmentDoc = null;
       let oldEquipmentStatus = null;
@@ -262,6 +241,30 @@ exports.createRequest = async (req, res) => {
             payload.teamId = equipmentDoc.maintenanceTeamId;
           if (!payload.assignedToId && equipmentDoc.defaultTechnicianId)
             payload.assignedToId = equipmentDoc.defaultTechnicianId;
+
+          // Geospatial Technician Dispatch Routing
+          if (payload.priority === 'urgent' && equipmentDoc.geoLocation && equipmentDoc.geoLocation.coordinates) {
+            const eqCoords = equipmentDoc.geoLocation.coordinates;
+            // Only search if coordinates are not [0,0]
+            if (eqCoords[0] !== 0 || eqCoords[1] !== 0) {
+              const nearestTech = await TeamMember.findOne({
+                isActive: true,
+                geoLocation: {
+                  $near: {
+                    $geometry: { type: 'Point', coordinates: eqCoords }
+                  }
+                }
+              }).session(session);
+
+              if (nearestTech) {
+                payload.assignedToId = nearestTech._id;
+                payload.teamId = nearestTech.teamId || payload.teamId;
+                
+                // Add a note to the ticket that it was auto-routed
+                payload.description = `[SYSTEM AUTO-ROUTED] Assigned to closest technician ${nearestTech.name}.\n\n` + (payload.description || '');
+              }
+            }
+          }
 
           await Equipment.findByIdAndUpdate(
             equipmentDoc._id,
@@ -450,11 +453,6 @@ exports.updateRequest = async (req, res) => {
     const prevRequest = await MaintenanceRequest.findById(req.params.id);
     if (!prevRequest) return res.status(404).json({ error: "Request not found" });
 
-    const request = await MaintenanceRequest.findById(req.params.id)
-      .populate("equipment")
-      .populate("createdBy", "name email");
-
-    if (!request) return res.status(404).json({ error: "Request not found" });
 
     const prevStage = request.stage;
     const prevPriority = request.priority;
@@ -728,6 +726,9 @@ exports.updateRequestStage = async (req, res) => {
     if (stage === "in-progress" && request.equipment?.lotoRequired) {
       if (!request.lotoAudit || !request.lotoAudit.isCompleted) {
         return res.status(400).json({ error: "LOTO Safety Audit is required before starting work on this equipment." });
+      }
+    }
+    
     if (stage === "repaired" || stage === "scrap") {
       if (request.checkedOutTools && request.checkedOutTools.length > 0) {
         return res.status(400).json({ error: "Cannot close ticket. All tools must be returned first." });
@@ -1417,11 +1418,19 @@ exports.addPartToRequest = async (req, res) => {
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
 
-    const part = await SparePart.findById(partId);
-    if (!part) return res.status(404).json({ error: "Part not found" });
-
     const qty = quantityUsed || 1;
-    if (part.quantityInStock < qty) {
+
+    // Use findOneAndUpdate to atomically check and decrement stock to prevent race conditions
+    const updatedPart = await SparePart.findOneAndUpdate(
+      { _id: partId, quantityInStock: { $gte: qty } },
+      { $inc: { quantityInStock: -qty } },
+      { new: true }
+    );
+
+    if (!updatedPart) {
+      // Check if the part exists to return an appropriate error
+      const partExists = await SparePart.findById(partId);
+      if (!partExists) return res.status(404).json({ error: "Part not found" });
       return res.status(400).json({ error: "Insufficient stock" });
     }
 
@@ -1434,11 +1443,10 @@ exports.addPartToRequest = async (req, res) => {
 
     await request.save();
 
-    part.quantityInStock -= qty;
-    if (part.quantityInStock <= part.minReorderThreshold && part.reorderStatus === 'ok') {
-      part.reorderStatus = 'low-stock';
+    if (updatedPart.quantityInStock <= updatedPart.minReorderThreshold && updatedPart.reorderStatus === 'ok') {
+      updatedPart.reorderStatus = 'low-stock';
+      await updatedPart.save();
     }
-    await part.save();
 
     const io = req.app.get("socketio");
     if (io) {
@@ -1479,13 +1487,29 @@ exports.submitLOTO = async (req, res) => {
 
     await request.save();
     res.status(200).json(request);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.checkoutTool = async (req, res) => {
+  let lock;
   try {
     const { toolId } = req.body;
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
 
-    // Atomic update acts as a distributed lock
+    const io = req.app.get("socketio");
+
+    // Acquire lock for this specific tool for 5 seconds
+    lock = await redlock.acquire([`tools:checkout:${toolId}`], 5000);
+
+    // Alert UI instantly to disable checkout buttons for this tool
+    if (io) {
+      io.emit('tool_locked', { toolId });
+    }
+
+    // Atomic update
     const tool = await Tool.findOneAndUpdate(
       { _id: toolId, status: 'Available' },
       { status: 'Checked Out' },
@@ -1493,15 +1517,25 @@ exports.checkoutTool = async (req, res) => {
     );
     
     if (!tool) {
+      if (io) io.emit('tool_unlocked', { toolId });
       return res.status(400).json({ error: "Tool is not available for checkout or does not exist" });
     }
 
     request.checkedOutTools.push({ toolId: tool._id, checkedOutAt: new Date() });
     await request.save();
 
-    const io = req.app.get("socketio");
+    // Create Audit Log
+    await ToolAuditLog.create({
+      toolId: tool._id,
+      action: 'Checkout',
+      performedBy: req.user ? req.user._id : request.createdById, // fallback to createdById if user is not available
+      associatedRequestId: request._id,
+      metadata: { timestamp: new Date() }
+    });
+
     if (io) {
-      io.emit('tools_changed');
+      io.emit('tools_changed'); // Global update
+      io.emit('tool_unlocked', { toolId });
     }
 
     const updatedReq = await MaintenanceRequest.findById(request._id)
@@ -1509,7 +1543,19 @@ exports.checkoutTool = async (req, res) => {
 
     res.status(200).json(updatedReq);
   } catch (error) {
+    if (error.name === 'ExecutionError') {
+      // Redlock error
+      return res.status(423).json({ error: "Tool is currently being processed by another user. Please try again." });
+    }
     res.status(500).json({ error: error.message });
+  } finally {
+    if (lock) {
+      try {
+        await lock.release();
+      } catch (e) {
+        console.error('[Redlock] Failed to release lock', e);
+      }
+    }
   }
 };
 const isAuthorizedForRequest = (request, user) => {
@@ -1584,10 +1630,14 @@ exports.listAttachments = async (req, res) => {
 };
 
 exports.returnTool = async (req, res) => {
+  let lock;
   try {
     const { toolId } = req.body;
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
+
+    // Acquire lock for this specific tool for 5 seconds
+    lock = await redlock.acquire([`tools:checkout:${toolId}`], 5000);
 
     request.checkedOutTools = request.checkedOutTools.filter(t => t.toolId.toString() !== toolId);
     await request.save();
@@ -1597,6 +1647,15 @@ exports.returnTool = async (req, res) => {
       { status: 'Available' },
       { new: true }
     );
+
+    // Create Audit Log
+    await ToolAuditLog.create({
+      toolId: toolId,
+      action: 'Return',
+      performedBy: req.user ? req.user._id : request.createdById, // fallback
+      associatedRequestId: request._id,
+      metadata: { timestamp: new Date() }
+    });
 
     const io = req.app.get("socketio");
     if (io) {
@@ -1608,7 +1667,18 @@ exports.returnTool = async (req, res) => {
 
     res.status(200).json(updatedReq);
   } catch (error) {
+    if (error.name === 'ExecutionError') {
+      return res.status(423).json({ error: "Tool is currently being processed by another user. Please try again." });
+    }
     res.status(500).json({ error: error.message });
+  } finally {
+    if (lock) {
+      try {
+        await lock.release();
+      } catch (e) {
+        console.error('[Redlock] Failed to release lock', e);
+      }
+    }
   }
 };
 exports.downloadAttachment = async (req, res) => {

@@ -25,11 +25,16 @@ const UserSchema = new Schema({
   
   providerId: { type: String },
 
+  organizationId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Organization' 
+  },
+
   role: {
     type: String,
     enum: {
-      values: ["Admin", "Manager", "Technician"],
-      message: "Role must be one of: Admin, Manager, Technician",
+      values: ["SystemAdmin", "OrgAdmin", "Admin", "Manager", "Technician"],
+      message: "Role must be one of: SystemAdmin, OrgAdmin, Admin, Manager, Technician",
     },
     default: "Technician",
   },

@@ -76,11 +76,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+const { createAdapter } = require('@socket.io/redis-adapter');
+const Redis = require('ioredis');
+
+// Setup Redis adapter clients
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const pubClient = new Redis(redisUrl);
+const subClient = pubClient.duplicate();
+
 const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
     methods: ["GET", "POST"],
   },
+  pingTimeout: 10000,
+  pingInterval: 5000,
+  adapter: createAdapter(pubClient, subClient)
 });
 
 // Socket.IO Authentication Middleware
@@ -130,9 +141,60 @@ io.on("connection", (socket) => {
     socket.to(`ticket_${ticketId}`).emit("user_stop_typing", { userName });
   });
 
+  socket.on("location:update", async ({ longitude, latitude }) => {
+    try {
+      if (socket.user && socket.user.id) {
+        // We'll update any TeamMember linked to this user. We look up User to get email, then TeamMember.
+        const User = require('./models/user');
+        const TeamMember = require('./models/TeamMember');
+        const user = await User.findById(socket.user.id);
+        
+        if (user && user.email) {
+          await TeamMember.findOneAndUpdate(
+            { email: user.email },
+            { 
+              $set: { 
+                'geoLocation.coordinates': [longitude, latitude] 
+              } 
+            }
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update location:", err);
+    }
+  });
+
   socket.on("disconnect", () => {
+    // Aggressive garbage collection of custom rooms
+    if (socket.rooms && socket.rooms.size > 0) {
+      for (const room of socket.rooms) {
+        if (room !== socket.id) {
+          socket.leave(room);
+        }
+      }
+    }
     console.log(`❌ User disconnected: ${socket.id}`);
   });
+});
+
+// Admin Audit Tooling: Socket Health Check
+app.get('/api/health/sockets', async (req, res) => {
+  try {
+    const clientsCount = io.engine.clientsCount;
+    // Since we are using Redis adapter, allRooms() gives cluster-wide room count
+    const rooms = await io.of("/").adapter.allRooms();
+    
+    res.json({
+      success: true,
+      clientsCount,
+      roomsCount: rooms.size,
+      adapterType: "Redis",
+      uptime: process.uptime()
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch socket health" });
+  }
 });
 
 // Make io accessible to routes/controllers
@@ -277,10 +339,12 @@ const startServer = async () => {
     const { startHealthScoreCron } = require('./cron/healthScoreCron');
     const { startPreventiveSchedulerCron } = require('./cron/preventiveSchedulerCron');
     const webhookDispatcher = require('./jobs/webhookDispatcher');
+    const { startTelemetryIngest } = require('./jobs/telemetryIngest');
     
     startHealthScoreCron();
     startPreventiveSchedulerCron(io);
     webhookDispatcher.start();
+    startTelemetryIngest(io);
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`\n🚀 GearGuard Server Running!`);
