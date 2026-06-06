@@ -100,7 +100,7 @@ const ToolCrib: React.FC = () => {
     switch (status) {
       case 'Available': return 'success';
       case 'Checked Out': return 'warning';
-      case 'In Repair': return 'error';
+      case 'In Repair': return 'danger';
       case 'Lost': return 'default';
       default: return 'primary';
     }
