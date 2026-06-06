@@ -15,6 +15,8 @@ import { MaintenanceRequest } from '../types';
 import { ShieldCheck, CheckCircle } from 'lucide-react';
 import ImageUploadZone from './ImageUploadZone';
 import ImageGallery from './ImageGallery';
+import axios from 'axios';
+import RCAWizardModal from './RCAWizardModal';
 interface RequestModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -98,12 +100,17 @@ const RequestModal: React.FC<RequestModalProps> = ({
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [selectedParts, setSelectedParts] = useState<{ partId: string; quantityUsed: number }[]>([]);
+  const [requiredParts, setRequiredParts] = useState<{ partId: string; quantityNeeded: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [predictions, setPredictions] = useState<SparePart[]>([]);
   const [loadingPredictions, setLoadingPredictions] = useState(false);
 
   // Attachments state
   const [attachments, setAttachments] = useState<File[]>([]);
+
+  // RCA state
+  const [showRCAWizard, setShowRCAWizard] = useState(false);
+  const [hasRCATree, setHasRCATree] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -127,6 +134,30 @@ const RequestModal: React.FC<RequestModalProps> = ({
 
     loadData();
   }, []);
+
+  const handleLotoComplete = async (response: any) => {
+    try {
+      setExistingRequest(prev => prev ? { ...prev, lotoAudit: response } : null);
+      toast.success('LOTO Audit completed successfully');
+    } catch (error) {
+      console.error('Failed to save LOTO audit:', error);
+      toast.error('Failed to save LOTO audit');
+    }
+  };
+
+  const handleRCAComplete = async (rootCause: string, rcaNodeId: string) => {
+    if (!existingRequest) return;
+    try {
+      // Patch the maintenance request with the new RCA fields
+      await requestService.update(existingRequest._id!, { rootCause, rcaNodeId });
+      setExistingRequest(prev => prev ? { ...prev, rootCause, rcaNodeId } : null);
+      setShowRCAWizard(false);
+      toast.success('RCA saved successfully');
+      onSuccess();
+    } catch (error) {
+      toast.error('Failed to save RCA Root Cause');
+    }
+  };
 
   // Update scheduled date and pre-selected equipment when modal opens
   useEffect(() => {
@@ -160,7 +191,10 @@ const RequestModal: React.FC<RequestModalProps> = ({
             checklist: req.checklist || [],
           });
         })
-        .catch(err => console.error(err));
+        .catch(err => {
+          console.error('Failed to fetch request details:', err);
+          toast.error('Failed to load request details');
+        });
 
       setLoadingPredictions(true);
       requestService.getPredictions(editRequestId)
@@ -172,12 +206,20 @@ const RequestModal: React.FC<RequestModalProps> = ({
           console.error(err);
           setLoadingPredictions(false);
         });
-    } else if (!isOpen) {
+    } else {
       setExistingRequest(null);
-      setActiveTab('details');
-      setPredictions([]);
     }
   }, [isOpen, editRequestId]);
+
+  useEffect(() => {
+    if (existingRequest?.equipment?.category) {
+      axios.get(`/api/v1/diagnostics/${existingRequest.equipment.category}/has-tree`)
+        .then(res => setHasRCATree(res.data.hasTree))
+        .catch(() => setHasRCATree(false));
+    } else {
+      setHasRCATree(false);
+    }
+  }, [existingRequest?.equipment?.category]);
 
   const handleReservePart = async (partId: string) => {
     if (!editRequestId) return;
@@ -379,6 +421,7 @@ const RequestModal: React.FC<RequestModalProps> = ({
         const newRequest = await requestService.create({
           ...formData,
           partsUsed: selectedParts.filter(p => p.partId && p.quantityUsed > 0),
+          requiredParts: requiredParts.filter(p => p.partId && p.quantityNeeded > 0),
         });
 
         if (attachments.length > 0 && newRequest._id) {
@@ -425,6 +468,7 @@ const RequestModal: React.FC<RequestModalProps> = ({
   const handleClose = () => {
     setAttachments([]);
     setSelectedParts([]);
+    setRequiredParts([]);
 
     setAutoFilled({
       category: '',
@@ -436,6 +480,7 @@ const RequestModal: React.FC<RequestModalProps> = ({
   };
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
@@ -810,6 +855,65 @@ const RequestModal: React.FC<RequestModalProps> = ({
 
         {/* Spare Parts Used */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+
+        {/* Required Parts (BOM Kit) - Only show when creating */}
+        {!editRequestId && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4">
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
+              Required Parts (Advance Kit Reservation)
+            </label>
+            <p className="text-xs text-slate-500 mb-3">Parts selected here will be automatically reserved from inventory upon creation.</p>
+            <div className="space-y-3">
+              {requiredParts.map((item, index) => (
+                <div key={index} className="flex gap-3 items-center bg-teal-50 dark:bg-teal-900/20 p-3 rounded-xl border border-teal-100 dark:border-teal-800/30">
+                  <select
+                    value={item.partId}
+                    onChange={(e) => {
+                      const newParts = [...requiredParts];
+                      newParts[index].partId = e.target.value;
+                      setRequiredParts(newParts);
+                    }}
+                    className="flex-1 px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-950 dark:text-white focus:outline-none"
+                  >
+                    <option value="">Select a spare part...</option>
+                    {spareParts.map((part) => (
+                      <option key={part._id || part.id} value={part._id || part.id}>
+                        {part.name} (Stock: {part.quantityInStock})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Qty"
+                    value={item.quantityNeeded || ""}
+                    onChange={(e) => {
+                      const newParts = [...requiredParts];
+                      newParts[index].quantityNeeded = parseInt(e.target.value) || 0;
+                      setRequiredParts(newParts);
+                    }}
+                    className="w-20 px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-950 dark:text-white focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRequiredParts(requiredParts.filter((_, i) => i !== index))}
+                    className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setRequiredParts([...requiredParts, { partId: "", quantityNeeded: 1 }])}
+                className="flex items-center text-xs font-bold text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 gap-1 mt-1"
+              >
+                <Plus className="h-4 w-4" />
+                Add Required Part to Kit
+              </button>
+            </div>
+          </div>
+        )}
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
             Spare Parts Used
           </label>
@@ -985,7 +1089,33 @@ const RequestModal: React.FC<RequestModalProps> = ({
                         {resp.step}
                       </li>
                     ))}
+                    {existingRequest.lotoAudit?.isCompleted && (
+                      <div className="flex items-center text-green-600 dark:text-green-400 mt-2">
+                        <CheckCircle className="h-4 w-4 mr-1.5" />
+                        <span className="text-sm">LOTO Verified</span>
+                      </div>
+                    )}
                   </ul>
+                  
+                  {hasRCATree && (
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                      <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Root Cause Analysis</h4>
+                      {existingRequest.rootCause ? (
+                        <div className="flex items-center text-sm text-blue-800 dark:text-blue-200">
+                          <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
+                          <span><strong>Cause:</strong> {existingRequest.rootCause}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowRCAWizard(true)}
+                          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Run RCA Diagnostic
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {existingRequest.lotoAudit.proofImageUrl && (
@@ -1058,6 +1188,14 @@ const RequestModal: React.FC<RequestModalProps> = ({
         />
       )}
     </Modal>
+      {showRCAWizard && existingRequest?.equipment?.category && (
+        <RCAWizardModal
+          category={existingRequest.equipment.category}
+          onClose={() => setShowRCAWizard(false)}
+          onComplete={handleRCAComplete}
+        />
+      )}
+    </>
   );
 };
 
