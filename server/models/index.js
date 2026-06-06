@@ -18,6 +18,7 @@ const Task = require('./Task');
 const KeyRotationJob = require('./KeyRotationJob');
 const WebhookEvent = require('./WebhookEvent');
 const ToolAuditLog = require('./ToolAuditLog');
+const Organization = require('./Organization');
 
 const syncDatabase = async () => {
   try {
@@ -77,5 +78,6 @@ module.exports = {
   Task,
   KeyRotationJob,
   WebhookEvent,
-  ToolAuditLog
+  ToolAuditLog,
+  Organization
 };

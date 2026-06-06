@@ -37,7 +37,9 @@ const verifyToken = async (req, res, next) => {
 
     req.user = user;
 
-    next();
+    // Wrap the rest of the request lifecycle in the AsyncLocalStorage context
+    const { tenantContextMiddleware } = require("./tenantContext");
+    tenantContextMiddleware(req, res, next);
   } catch (error) {
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({
