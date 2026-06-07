@@ -104,6 +104,7 @@ export interface MaintenanceRequest {
   description?: string;
   type: 'corrective' | 'preventive';
   stage: 'new' | 'in-progress' | 'repaired' | 'scrap';
+  rootCause?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   requiredSkills?: string[];
   scheduledDate?: string;
