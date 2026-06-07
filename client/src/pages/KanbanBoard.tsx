@@ -337,9 +337,7 @@ interface ColumnProps {
   sortByCost: boolean;
 }
 
-const Column: React.FC<
-  ColumnProps
-> = ({
+const Column: React.FC<ColumnProps> = ({
   stage,
   requests,
   onDrop,
