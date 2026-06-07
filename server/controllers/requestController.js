@@ -25,6 +25,29 @@ function getGridFSBucket() {
   return new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'attachments' });
 }
 
+const calculateDowntimeCost = async (requestCreatedAt, completedDate, equipmentId, session = null) => {
+  let downtimeDurationHours = 0;
+  let totalDowntimeCost = 0;
+
+  if (requestCreatedAt) {
+    downtimeDurationHours = Math.max(0, (completedDate - new Date(requestCreatedAt)) / (1000 * 60 * 60));
+  }
+
+  let hourlyDowntimeCost = 0;
+  if (equipmentId) {
+    const query = Equipment.findById(equipmentId);
+    if (session) query.session(session);
+    const eq = await query;
+    if (eq && eq.hourlyDowntimeCost) {
+      hourlyDowntimeCost = eq.hourlyDowntimeCost;
+    }
+  }
+
+  totalDowntimeCost = downtimeDurationHours * hourlyDowntimeCost;
+
+  return { downtimeDurationHours, totalDowntimeCost };
+};
+
 const decrementInventory = async (io, partsUsed) => {
   if (!partsUsed || !Array.isArray(partsUsed) || partsUsed.length === 0) return;
   for (const item of partsUsed) {
@@ -454,42 +477,6 @@ exports.updateRequest = async (req, res) => {
     if (!prevRequest) return res.status(404).json({ error: "Request not found" });
 
 
-    const prevStage = request.stage;
-    const prevPriority = request.priority;
-
-    if (payload.stage === 'in-progress' && prevStage === 'new' && request.isBlockedAwaitingParts) {
-       return res.status(400).json({ error: "Cannot start an in-progress ticket while blocked awaiting parts." });
-    }
-
-    // Handle stage side-effects (equipment status updates)
-    if (payload.stage) {
-      if (payload.stage === "repaired") {
-        payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
-            $set: { status: "active" },
-            $push: { history: {
-              eventType: 'REPAIR_COMPLETED',
-              description: `Request marked as repaired. Status changed to active.`,
-              userId: req.user?._id,
-              userName: req.user?.name || "System"
-            }}
-          });
-        }
-      }
-      if (payload.stage === "scrap") {
-        payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
-            $set: { status: "scrapped" },
-            $push: { history: {
-              eventType: 'SCRAPPED',
-              description: `Request marked as scrap. Status changed to scrapped.`,
-              userId: req.user?._id,
-              userName: req.user?.name || "System"
-            }}
-          });
-    // Non-transactional block removed
     const prevStage = prevRequest.stage;
     const prevPriority = prevRequest.priority;
     
@@ -521,8 +508,16 @@ exports.updateRequest = async (req, res) => {
     const request = await withTransactionFallback(async (session) => {
       // Handle stage side-effects (equipment status updates)
       if (payload.stage) {
-        if (payload.stage === "repaired") {
+        if (payload.stage === "repaired" || payload.stage === "scrap") {
           payload.completedDate = new Date();
+          const { downtimeDurationHours, totalDowntimeCost } = await calculateDowntimeCost(
+            prevRequest.createdAt, payload.completedDate, prevRequest.equipmentId, session
+          );
+          payload.downtimeDurationHours = downtimeDurationHours;
+          payload.totalDowntimeCost = totalDowntimeCost;
+        }
+
+        if (payload.stage === "repaired") {
           if (prevRequest.equipmentId) {
             await Equipment.findByIdAndUpdate(
               prevRequest.equipmentId,
@@ -545,7 +540,6 @@ exports.updateRequest = async (req, res) => {
           }
         }
         if (payload.stage === "scrap") {
-          payload.completedDate = new Date();
           if (prevRequest.equipmentId) {
             await Equipment.findByIdAndUpdate(
               prevRequest.equipmentId,
@@ -783,16 +777,9 @@ exports.updateRequestStage = async (req, res) => {
 
     if (stage === "repaired" || stage === "scrap") {
       const completedDate = new Date();
-      let downtimeDurationHours = 0;
-      let totalDowntimeCost = 0;
-
-      if (request.createdAt) {
-        downtimeDurationHours = Math.max(0, (completedDate - request.createdAt) / (1000 * 60 * 60));
-      }
-
-      if (request.equipment && request.equipment.hourlyDowntimeCost) {
-        totalDowntimeCost = downtimeDurationHours * request.equipment.hourlyDowntimeCost;
-      }
+      const { downtimeDurationHours, totalDowntimeCost } = await calculateDowntimeCost(
+        request.createdAt, completedDate, request.equipmentId
+      );
 
       await MaintenanceRequest.findByIdAndUpdate(req.params.id, {
         completedDate,
