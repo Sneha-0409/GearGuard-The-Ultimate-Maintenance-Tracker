@@ -299,6 +299,7 @@ const RequestCard: React.FC<
           Blocked: Awaiting Parts
         </div>
       )}
+
       {request.checkedOutTools && request.checkedOutTools.length > 0 && (
         <div className="text-xs text-indigo-600 dark:text-indigo-400 font-bold mt-2 flex items-center bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded w-fit border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
           <Wrench className="h-3 w-3 mr-1" />
