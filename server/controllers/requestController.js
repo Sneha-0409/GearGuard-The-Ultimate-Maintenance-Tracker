@@ -454,10 +454,10 @@ exports.updateRequest = async (req, res) => {
     if (!prevRequest) return res.status(404).json({ error: "Request not found" });
 
 
-    const prevStage = request.stage;
-    const prevPriority = request.priority;
+    const prevStage = prevRequest.stage;
+    const prevPriority = prevRequest.priority;
 
-    if (payload.stage === 'in-progress' && prevStage === 'new' && request.isBlockedAwaitingParts) {
+    if (payload.stage === 'in-progress' && prevStage === 'new' && prevRequest.isBlockedAwaitingParts) {
        return res.status(400).json({ error: "Cannot start an in-progress ticket while blocked awaiting parts." });
     }
 
@@ -465,8 +465,8 @@ exports.updateRequest = async (req, res) => {
     if (payload.stage) {
       if (payload.stage === "repaired") {
         payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
+        if (prevRequest.equipmentId) {
+          await Equipment.findByIdAndUpdate(prevRequest.equipmentId, {
             $set: { status: "active" },
             $push: { history: {
               eventType: 'REPAIR_COMPLETED',
@@ -479,8 +479,8 @@ exports.updateRequest = async (req, res) => {
       }
       if (payload.stage === "scrap") {
         payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
+        if (prevRequest.equipmentId) {
+          await Equipment.findByIdAndUpdate(prevRequest.equipmentId, {
             $set: { status: "scrapped" },
             $push: { history: {
               eventType: 'SCRAPPED',
@@ -489,12 +489,13 @@ exports.updateRequest = async (req, res) => {
               userName: req.user?.name || "System"
             }}
           });
+        }
+      }
+    }
     // Non-transactional block removed
-    const prevStage = prevRequest.stage;
-    const prevPriority = prevRequest.priority;
     
     // NEW LOTO CHECK
-    if (payload.stage === "in-progress" && prevStage !== "in-progress") {
+    if ((payload.stage === "in-progress" || payload.stage === "repaired") && prevStage !== "in-progress") {
       const prevRequestWithEq = await MaintenanceRequest.findById(req.params.id).populate('equipment');
       if (prevRequestWithEq && prevRequestWithEq.equipment?.lotoRequired) {
         if (!prevRequestWithEq.lotoAudit || !prevRequestWithEq.lotoAudit.isCompleted) {
@@ -748,7 +749,7 @@ exports.updateRequestStage = async (req, res) => {
       userName: request.createdBy?.name || ""
     });
 
-    if (stage === "in-progress" && request.equipment?.lotoRequired) {
+    if ((stage === "in-progress" || stage === "repaired") && request.stage !== "in-progress" && request.equipment?.lotoRequired) {
       if (!request.lotoAudit || !request.lotoAudit.isCompleted) {
         return res.status(400).json({ error: "LOTO Safety Audit is required before starting work on this equipment." });
       }
