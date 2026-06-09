@@ -332,6 +332,7 @@ exports.createRequest = async (req, res) => {
       }
 
       let isBlocked = false;
+      let estimatedPartsCost = 0;
       if (payload.requiredParts && payload.requiredParts.length > 0) {
         for (const reqPart of payload.requiredParts) {
           const partDoc = await SparePart.findById(reqPart.partId).session(session);
@@ -340,6 +341,7 @@ exports.createRequest = async (req, res) => {
              if (availableStock < reqPart.quantityNeeded) {
                isBlocked = true;
              }
+             estimatedPartsCost += (partDoc.unitCost || 0) * (reqPart.quantityNeeded || 1);
              await SparePart.findByIdAndUpdate(reqPart.partId, {
                $inc: { quantityReserved: reqPart.quantityNeeded }
              }, { session });
@@ -352,6 +354,13 @@ exports.createRequest = async (req, res) => {
         if (!isCertified) {
           throw new Error("Safety Violation: The assigned technician lacks the required certifications for this task.");
         }
+      }
+
+      payload.estimatedCost = estimatedPartsCost + (payload.expectedVendorQuote || 0);
+
+      if (payload.estimatedCost >= 5000) {
+        payload.stage = 'awaiting-approval';
+        payload.approvalStatus = 'pending';
       }
 
       const request = await MaintenanceRequest.create([{
@@ -519,6 +528,39 @@ exports.updateRequest = async (req, res) => {
        return res.status(400).json({ error: "Cannot start an in-progress ticket while blocked awaiting parts." });
     }
 
+    let currentApprovalStatus = prevRequest.approvalStatus;
+    let currentEstimatedCost = prevRequest.estimatedCost || 0;
+
+    // Recalculate cost if parts or vendor quote changes
+    if (payload.requiredParts || payload.expectedVendorQuote !== undefined) {
+      const partsToUse = payload.requiredParts || prevRequest.requiredParts || [];
+      let newPartsCost = 0;
+      for (const reqPart of partsToUse) {
+        const partDoc = await SparePart.findById(reqPart.partId);
+        if (partDoc) {
+          newPartsCost += (partDoc.unitCost || 0) * (reqPart.quantityNeeded || 1);
+        }
+      }
+      currentEstimatedCost = newPartsCost + (payload.expectedVendorQuote !== undefined ? payload.expectedVendorQuote : (prevRequest.expectedVendorQuote || 0));
+      payload.estimatedCost = currentEstimatedCost;
+      
+      if (currentEstimatedCost >= 5000 && currentApprovalStatus !== 'approved') {
+        payload.stage = 'awaiting-approval';
+        payload.approvalStatus = 'pending';
+        currentApprovalStatus = 'pending';
+      } else if (currentEstimatedCost < 5000 && currentApprovalStatus === 'pending') {
+        if (prevRequest.stage === 'awaiting-approval' && !payload.stage) {
+          payload.stage = 'new';
+        }
+        payload.approvalStatus = 'not-required';
+        currentApprovalStatus = 'not-required';
+      }
+    }
+
+    if (payload.stage === 'in-progress' && currentApprovalStatus === 'pending') {
+      return res.status(403).json({ error: "Financial approval is required before work can begin on this high-cost ticket." });
+    }
+
     // Handle stage side-effects (equipment status updates)
     if (payload.stage) {
       if (payload.stage === "repaired") {
@@ -550,6 +592,7 @@ exports.updateRequest = async (req, res) => {
         }
       }
     }
+    // Non-transactional block removed
     
     // NEW LOTO CHECK
     if (payload.stage === "in-progress" && prevStage !== "in-progress") {
@@ -815,6 +858,10 @@ exports.updateRequestStage = async (req, res) => {
     }
 
     const prevStage = request.stage;
+
+    if (stage === 'in-progress' && request.approvalStatus === 'pending') {
+      return res.status(403).json({ error: "Financial approval is required before work can begin on this high-cost ticket." });
+    }
 
     if (stage === 'in-progress' && prevStage === 'new' && request.isBlockedAwaitingParts) {
        return res.status(400).json({ error: "Cannot start an in-progress ticket while blocked awaiting parts." });
@@ -2024,11 +2071,40 @@ exports.escalateToVendor = async (req, res) => {
   }
 };
 
+
 // Approve Request Costs
 exports.approveRequest = async (req, res) => {
   try {
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
+
+    // Ensure authorized
+    if (req.user.role !== 'Admin' && req.user.role !== 'Manager') {
+      return res.status(403).json({ error: "Not authorized to approve financial requests." });
+    }
+
+    if (request.approvalStatus !== 'pending') {
+      return res.status(400).json({ error: "Request is not pending approval." });
+    }
+
+    request.approvalStatus = 'approved';
+    request.approvedBy = req.user._id;
+    request.approvalDate = new Date();
+    request.stage = 'new'; // unlock it back to 'new' so work can begin
+
+    await request.save();
+
+    const io = req.app.get("socketio");
+    if (io) {
+      const NotificationService = require('../services/notificationService');
+      await NotificationService.notifyRequestChange(io, "request_updated", request, `Financial approval granted by ${req.user.name}.`);
+    }
+
+    res.status(200).json(request);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
     // Authorization: Manager can approve Tier 1. Admin can approve Tier 1 & Tier 2.
     if (request.approvalStatus === 'pending_tier1' && !['Admin', 'Manager'].includes(req.user.role)) {
@@ -2062,6 +2138,28 @@ exports.rejectRequest = async (req, res) => {
     const request = await MaintenanceRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: "Request not found" });
 
+    if (req.user.role !== 'Admin' && req.user.role !== 'Manager') {
+      return res.status(403).json({ error: "Not authorized to reject financial requests." });
+    }
+
+    if (request.approvalStatus !== 'pending') {
+      return res.status(400).json({ error: "Request is not pending approval." });
+    }
+
+    request.approvalStatus = 'rejected';
+    request.stage = 'new'; // unlock it back to 'new' but maybe they should just modify parts
+
+    await request.save();
+
+    const io = req.app.get("socketio");
+    if (io) {
+      const NotificationService = require('../services/notificationService');
+      await NotificationService.notifyRequestChange(io, "request_updated", request, `Financial approval rejected by ${req.user.name}.`);
+    }
+
+    res.status(200).json(request);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
     if (!['Admin', 'Manager'].includes(req.user.role)) {
       return res.status(403).json({ error: "Unauthorized to reject requests." });
     }
