@@ -117,13 +117,30 @@ const RequestCard: React.FC<
       }),
     }));
 
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    if (request.stage === "repaired" || request.stage === "scrap") return;
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [request.stage]);
+
+  const isDynamicallyBreached = () => {
+    if (request.slaBreached) return true;
+    if (request.stage === "repaired" || request.stage === "scrap") return false;
+    if (request.slaDeadline && currentTime > new Date(request.slaDeadline).getTime()) return true;
+    return false;
+  };
+
   const isOverdue = (
     date?: string,
     stage?: string
   ) => {
     if (!date) return false;
 
-    const today = new Date();
+    const today = new Date(currentTime);
 
     const due = new Date(date);
 
@@ -170,7 +187,7 @@ const RequestCard: React.FC<
           : 1,
       }}
       className={`kanban-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm dark:shadow-none border-2 mb-3 cursor-pointer ${
-        request.slaBreached 
+        isDynamicallyBreached() 
           ? "border-red-500 shadow-red-500/20"
           : (request.slaBreachProbability && request.slaBreachProbability >= 85 && request.stage !== "repaired" && request.stage !== "scrap")
           ? "border-orange-500 shadow-orange-500/20 bg-orange-50 dark:bg-orange-900/10 animate-pulse-border"
