@@ -926,6 +926,10 @@ exports.updateRequestStage = async (req, res) => {
     if (partsCost !== undefined) updateData.partsCost = partsCost;
     if (laborCost !== undefined) updateData.laborCost = laborCost;
 
+    if (shouldProcessCompletion) {
+      updateData.completionProcessed = true;
+    }
+
     // Check Approval Thresholds if stage is being completed
     if (stage === "repaired" || stage === "scrap") {
       const totalCost = (partsCost !== undefined ? Number(partsCost) : Number(request.partsCost || 0)) + 
@@ -945,8 +949,6 @@ exports.updateRequestStage = async (req, res) => {
         });
       }
     }
-
-    await MaintenanceRequest.findByIdAndUpdate(req.params.id, updateData);
 
     if (stage === "repaired" || stage === "scrap") {
       updateData.completedDate = new Date();
