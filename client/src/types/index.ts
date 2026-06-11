@@ -115,6 +115,8 @@ export interface MaintenanceRequest {
   partsCost?: number;
   laborCost?: number;
   notes?: string;
+  rootCause?: string;
+  rcaNodeId?: string;
   estimatedCost?: number;
   expectedVendorQuote?: number;
   approvalStatus?: 'not-required' | 'pending' | 'approved' | 'rejected';

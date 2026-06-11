@@ -17,6 +17,7 @@ import ImageUploadZone from './ImageUploadZone';
 import ImageGallery from './ImageGallery';
 import axios from 'axios';
 import RCAWizardModal from './RCAWizardModal';
+import CannibalizeModal from './CannibalizeModal';
 import Select from "react-select";
 import { CERTIFICATION_OPTIONS } from "../utils/certifications";
 
@@ -41,7 +42,6 @@ const RequestModal: React.FC<RequestModalProps> = ({
 }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'loto' | 'tools' | 'vendor'>('details');
-  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'loto' | 'tools'>('details');
   const [existingRequest, setExistingRequest] = useState<MaintenanceRequest | null>(null);
   // Helper function to format date for datetime-local input
   const formatDateForInput = (dateInput?: Date | string): string => {
@@ -116,6 +116,10 @@ const RequestModal: React.FC<RequestModalProps> = ({
   // RCA state
   const [showRCAWizard, setShowRCAWizard] = useState(false);
   const [hasRCATree, setHasRCATree] = useState(false);
+
+  // Cannibalization state
+  const [cannibalizeModalOpen, setCannibalizeModalOpen] = useState(false);
+  const [selectedPartForCannibalize, setSelectedPartForCannibalize] = useState<{ partId: string; name: string; quantity: number } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -622,6 +626,45 @@ const RequestModal: React.FC<RequestModalProps> = ({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {editRequestId && existingRequest?.requiredParts && existingRequest.requiredParts.length > 0 && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4">
+            <label className="block text-sm font-bold text-red-600 dark:text-red-400 mb-2">
+              Missing Parts (Blocking Ticket)
+            </label>
+            <div className="space-y-3">
+              {existingRequest.requiredParts.map((item: any, index: number) => {
+                const partDetails = typeof item.partId === 'object' ? item.partId : spareParts.find(p => (p._id || p.id) === item.partId);
+                const partName = partDetails?.name || 'Unknown Part';
+                const stock = partDetails?.quantityInStock || 0;
+                return (
+                  <div key={index} className="flex gap-3 items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-800/30">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{partName}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Needed: {item.quantityNeeded} | In Stock: {stock}</p>
+                    </div>
+                    {stock <= 0 && existingRequest.isBlockedAwaitingParts && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPartForCannibalize({
+                            partId: partDetails?._id || partDetails?.id || item.partId,
+                            name: partName,
+                            quantity: item.quantityNeeded
+                          });
+                          setCannibalizeModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold rounded shadow transition-colors"
+                      >
+                        Cannibalize Part
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -1267,6 +1310,25 @@ const RequestModal: React.FC<RequestModalProps> = ({
         />
       )}
     </Modal>
+
+    {cannibalizeModalOpen && selectedPartForCannibalize && (
+      <CannibalizeModal
+        isOpen={cannibalizeModalOpen}
+        onClose={() => setCannibalizeModalOpen(false)}
+        onSuccess={() => {
+          setCannibalizeModalOpen(false);
+          onSuccess(); // Refresh request
+          if (editRequestId) {
+            requestService.getById(editRequestId).then(setExistingRequest);
+          }
+        }}
+        requestId={editRequestId!}
+        partId={selectedPartForCannibalize.partId}
+        partName={selectedPartForCannibalize.name}
+        quantityNeeded={selectedPartForCannibalize.quantity}
+        currentEquipmentId={existingRequest?.equipmentId as string || formData.equipmentId}
+      />
+    )}
       {showRCAWizard && existingRequest?.equipment?.category && (
         <RCAWizardModal
           category={existingRequest.equipment.category}

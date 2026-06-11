@@ -374,3 +374,29 @@ exports.getEquipmentFinancials = asyncHandler(async (req, res, next) => {
     data: financials
   });
 });
+
+// Get equipment that are compatible with a specific part (for cannibalization)
+exports.getEquipmentByCompatiblePart = asyncHandler(async (req, res, next) => {
+  const { partId } = req.params;
+  const excludeEquipmentId = req.query.exclude;
+
+  if (!partId) {
+    throw new ErrorHandler("Part ID is required", ERROR_TYPES.VALIDATION_ERROR);
+  }
+
+  const query = { compatibleParts: partId };
+  if (excludeEquipmentId) {
+    query._id = { $ne: excludeEquipmentId };
+  }
+
+  const equipment = await Equipment.find(query)
+    .populate("maintenanceTeam")
+    .populate("defaultTechnician")
+    .sort({ status: 1, createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    count: equipment.length,
+    data: equipment,
+  });
+});

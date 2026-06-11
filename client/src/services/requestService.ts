@@ -188,6 +188,12 @@ export const requestService = {
     return response.data;
   },
 
+  cannibalizePart: async (requestId: string, partId: string, donorEquipmentId: string, quantity: number = 1): Promise<{ originalRequest: MaintenanceRequest; donorRequest: MaintenanceRequest }> => {
+    const response = await api.post(`/requests/${requestId}/cannibalize`, { donorEquipmentId, partId, quantity });
+    toast.success('Part cannibalized successfully');
+    return response.data.data;
+  },
+
   uploadAttachments: async (requestId: string, files: File[]): Promise<any[]> => {
     const formData = new FormData();
     files.forEach((file) => {
