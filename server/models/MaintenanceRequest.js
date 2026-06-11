@@ -55,6 +55,7 @@ const MaintenanceRequestSchema = new Schema({
     partId: { type: Schema.Types.ObjectId, ref: 'SparePart' },
     quantityNeeded: { type: Number, required: true, default: 1 }
   }],
+  requiredCertifications: [{ type: String }],
   isBlockedAwaitingParts: { type: Boolean, default: false },
   comments: [{
     authorId: { type: Schema.Types.ObjectId, ref: 'TeamMember', required: true },
@@ -92,7 +93,7 @@ const MaintenanceRequestSchema = new Schema({
     message: { type: String },
     magicToken: { type: String, select: false },
     tokenExpiresAt: { type: Date }
-  }
+  },
   rootCause: { type: String }, // Used by the RCA logic tree wizard
   rcaNodeId: { type: Schema.Types.ObjectId, ref: 'DiagnosticNode' } // Final leaf node of the RCA tree
 }, { timestamps: true });

@@ -303,6 +303,20 @@ exports.createRequest = async (req, res) => {
         }
       }
 
+      // Certification Check
+      if (payload.assignedToId && payload.requiredCertifications && payload.requiredCertifications.length > 0) {
+        const technician = await TeamMember.findById(payload.assignedToId).session(session);
+        if (technician) {
+          const techCerts = technician.certifications || [];
+          const missingCerts = payload.requiredCertifications.filter(cert => !techCerts.includes(cert));
+          if (missingCerts.length > 0) {
+            const error = new Error(`Safety Compliance Error: Technician is missing required certifications (${missingCerts.join(', ')})`);
+            error.status = 403;
+            throw error;
+          }
+        }
+      }
+
       const request = await MaintenanceRequest.create([{
         ...payload,
         requestNumber,
@@ -386,7 +400,8 @@ exports.createRequest = async (req, res) => {
 
     res.status(201).json(requestWithRelations);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    const status = error.status || 400;
+    res.status(status).json({ error: error.message });
   }
 };
 
@@ -454,44 +469,27 @@ exports.updateRequest = async (req, res) => {
     if (!prevRequest) return res.status(404).json({ error: "Request not found" });
 
 
-    const prevStage = request.stage;
-    const prevPriority = request.priority;
+    const prevStage = prevRequest.stage;
+    const prevPriority = prevRequest.priority;
 
-    if (payload.stage === 'in-progress' && prevStage === 'new' && request.isBlockedAwaitingParts) {
+    if (payload.stage === 'in-progress' && prevStage === 'new' && prevRequest.isBlockedAwaitingParts) {
        return res.status(400).json({ error: "Cannot start an in-progress ticket while blocked awaiting parts." });
     }
 
-    // Handle stage side-effects (equipment status updates)
-    if (payload.stage) {
-      if (payload.stage === "repaired") {
-        payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
-            $set: { status: "active" },
-            $push: { history: {
-              eventType: 'REPAIR_COMPLETED',
-              description: `Request marked as repaired. Status changed to active.`,
-              userId: req.user?._id,
-              userName: req.user?.name || "System"
-            }}
-          });
+    // Certification Check
+    const requiredCerts = payload.requiredCertifications || prevRequest.requiredCertifications || [];
+    if (payload.assignedToId && requiredCerts.length > 0) {
+      // If assignment hasn't changed, we could theoretically skip this, but it's safe to always check
+      // in case requirements were added in the same update.
+      const technician = await TeamMember.findById(payload.assignedToId);
+      if (technician) {
+        const techCerts = technician.certifications || [];
+        const missingCerts = requiredCerts.filter(cert => !techCerts.includes(cert));
+        if (missingCerts.length > 0) {
+          return res.status(403).json({ error: `Safety Compliance Error: Technician is missing required certifications (${missingCerts.join(', ')})` });
         }
       }
-      if (payload.stage === "scrap") {
-        payload.completedDate = new Date();
-        if (request.equipmentId) {
-          await Equipment.findByIdAndUpdate(request.equipmentId, {
-            $set: { status: "scrapped" },
-            $push: { history: {
-              eventType: 'SCRAPPED',
-              description: `Request marked as scrap. Status changed to scrapped.`,
-              userId: req.user?._id,
-              userName: req.user?.name || "System"
-            }}
-          });
-    // Non-transactional block removed
-    const prevStage = prevRequest.stage;
-    const prevPriority = prevRequest.priority;
+    }
     
     // NEW LOTO CHECK
     if (payload.stage === "in-progress" && prevStage !== "in-progress") {
@@ -1294,9 +1292,17 @@ exports.smartAssignInternal = async (requestId, io) => {
   }
 
   // 2. Find All Active Technicians in these Teams
-  const technicians = await TeamMember.find({ teamId: { $in: teamIds }, isActive: true });
+  let technicians = await TeamMember.find({ teamId: { $in: teamIds }, isActive: true });
+
+  if (request.requiredCertifications && request.requiredCertifications.length > 0) {
+    technicians = technicians.filter(tech => {
+      const techCerts = tech.certifications || [];
+      return request.requiredCertifications.every(cert => techCerts.includes(cert));
+    });
+  }
+
   if (technicians.length === 0) {
-    throw new Error("No active technicians found for the required specialization. Please assign manually.");
+    throw new Error("No active technicians found possessing the required safety certifications for this request. Please assign manually or update certifications.");
   }
 
     // 3. Query workload counts for these technicians (new and in-progress requests)

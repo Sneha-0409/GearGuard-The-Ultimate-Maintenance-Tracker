@@ -87,6 +87,7 @@ export interface TeamMember {
   avatar?: string;
   points?: number;
   badges?: string[];
+  certifications?: string[];
   isActive: boolean;
   teamId?: string;
   team?: MaintenanceTeam;
@@ -120,6 +121,7 @@ export interface MaintenanceRequest {
   createdBy?: TeamMember;
   partsUsed?: { partId: string | SparePart; quantityUsed: number }[];
   requiredParts?: { partId: string | SparePart; quantityNeeded: number }[];
+  requiredCertifications?: string[];
   isBlockedAwaitingParts?: boolean;
   comments?: {
     _id?: string;
@@ -157,6 +159,8 @@ export interface MaintenanceRequest {
   slaBreachProbability?: number;
   preBreachWarningSent?: boolean;
   slaBreached?: boolean;
+  rootCause?: string;
+  rcaNodeId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -205,7 +209,10 @@ export interface CreateMaintenanceRequestDto {
   }[];
   partsUsed?: PartUsedInput[];
   requiredParts?: { partId: string; quantityNeeded: number }[];
+  requiredCertifications?: string[];
   checklist?: { text: string; isCompleted: boolean }[];
+  rootCause?: string;
+  rcaNodeId?: string;
 }
 
 export interface Notification {
