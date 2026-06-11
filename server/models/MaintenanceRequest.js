@@ -49,7 +49,8 @@ const MaintenanceRequestSchema = new Schema({
   createdById: { type: Schema.Types.ObjectId, ref: 'User' },
   partsUsed: [{
     partId: { type: Schema.Types.ObjectId, ref: 'SparePart' },
-    quantityUsed: { type: Number, required: true, default: 1 }
+    quantityUsed: { type: Number, required: true, default: 1 },
+    cannibalizedFrom: { type: Schema.Types.ObjectId, ref: 'Equipment' }
   }],
   requiredParts: [{
     partId: { type: Schema.Types.ObjectId, ref: 'SparePart' },

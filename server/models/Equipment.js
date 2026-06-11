@@ -38,6 +38,7 @@ const EquipmentSchema = new Schema({
     }
   },
   floorPlanId: { type: Schema.Types.ObjectId, ref: 'FloorPlan' },
+  compatibleParts: [{ type: Schema.Types.ObjectId, ref: 'SparePart' }],
   
   healthScore: {
     type: Number,

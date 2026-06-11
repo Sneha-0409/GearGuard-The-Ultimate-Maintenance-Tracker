@@ -1781,3 +1781,95 @@ exports.escalateToVendor = async (req, res) => {
   }
 };
 
+// Cannibalize a part from another equipment
+exports.cannibalizePart = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { donorEquipmentId, partId, quantity = 1 } = req.body;
+
+    if (!donorEquipmentId || !partId) {
+      return res.status(400).json({ error: "donorEquipmentId and partId are required" });
+    }
+
+    const request = await MaintenanceRequest.findById(id);
+    if (!request) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    if (!request.isBlockedAwaitingParts) {
+      return res.status(400).json({ error: "Request is not currently blocked awaiting parts" });
+    }
+
+    const partIndex = request.requiredParts.findIndex(p => p.partId.toString() === partId);
+    if (partIndex === -1) {
+      return res.status(400).json({ error: "Part is not required for this request" });
+    }
+
+    const donorEquipment = await Equipment.findById(donorEquipmentId).populate("maintenanceTeam");
+    if (!donorEquipment) {
+      return res.status(404).json({ error: "Donor equipment not found" });
+    }
+
+    const part = await SparePart.findById(partId);
+    if (!part) {
+      return res.status(404).json({ error: "Part not found" });
+    }
+
+    // 1. Remove from requiredParts and add to partsUsed with cannibalizedFrom
+    const requiredQty = request.requiredParts[partIndex].quantityNeeded;
+    if (quantity >= requiredQty) {
+      request.requiredParts.splice(partIndex, 1);
+    } else {
+      request.requiredParts[partIndex].quantityNeeded -= quantity;
+    }
+
+    const usedPartIndex = request.partsUsed.findIndex(p => p.partId.toString() === partId && p.cannibalizedFrom?.toString() === donorEquipmentId);
+    if (usedPartIndex > -1) {
+      request.partsUsed[usedPartIndex].quantityUsed += quantity;
+    } else {
+      request.partsUsed.push({
+        partId,
+        quantityUsed: quantity,
+        cannibalizedFrom: donorEquipmentId
+      });
+    }
+
+    // If no more parts are required, unblock the ticket
+    if (request.requiredParts.length === 0) {
+      request.isBlockedAwaitingParts = false;
+    }
+
+    await request.save();
+
+    // 2. Create a new sub-ticket for the donor equipment
+    const newRequest = await MaintenanceRequest.create({
+      requestNumber: `REQ-${Date.now()}`,
+      subject: `Cannibalize: Remove ${part.name}`,
+      description: `Remove ${part.name} (Qty: ${quantity}) from this equipment. This part was cannibalized to fulfill ${request.requestNumber}.`,
+      type: 'corrective',
+      stage: 'new',
+      priority: 'high',
+      equipmentId: donorEquipmentId,
+      teamId: donorEquipment.maintenanceTeamId || request.teamId,
+      assignedToId: request.assignedToId,
+      createdById: req.user?._id,
+      isBlockedAwaitingParts: true,
+      requiredParts: [{
+        partId: part._id,
+        quantityNeeded: quantity
+      }]
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Part cannibalized successfully",
+      data: {
+        originalRequest: request,
+        donorRequest: newRequest
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
