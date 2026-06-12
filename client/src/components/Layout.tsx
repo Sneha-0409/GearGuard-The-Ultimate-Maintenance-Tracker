@@ -25,6 +25,7 @@ import {
   Cloud,
   UserCircle,
   ShieldAlert,
+  UserCircle,
 } from "lucide-react";
 import NotificationCenter from "./NotificationCenter";
 import LanguageSelector from "./LanguageSelector";
