@@ -30,6 +30,7 @@ import DowntimeGantt from './pages/DowntimeGantt';
 import ShiftHandoverLogbook from './pages/ShiftHandoverLogbook';
 
 import { NotificationProvider } from './contexts/NotificationContext';
+import OfflineWarning from './components/OfflineWarning';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
@@ -79,6 +80,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
+      <OfflineWarning />
       <Router>
         <NotificationProvider>
           <Routes>

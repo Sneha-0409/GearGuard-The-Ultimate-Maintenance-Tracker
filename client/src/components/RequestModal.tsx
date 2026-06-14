@@ -22,6 +22,7 @@ import RCAWizardModal from './RCAWizardModal';
 import CannibalizeModal from './CannibalizeModal';
 import Select from "react-select";
 import { CERTIFICATION_OPTIONS } from "../utils/certifications";
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface RequestModalProps {
   isOpen: boolean;
@@ -119,6 +120,8 @@ const RequestModal: React.FC<RequestModalProps> = ({
 
   // RCA state
   const [showRCAWizard, setShowRCAWizard] = useState(false);
+  
+  const isOnline = useNetworkStatus();
   const [hasRCATree, setHasRCATree] = useState(false);
 
   // Cannibalization state
@@ -1241,11 +1244,14 @@ const RequestModal: React.FC<RequestModalProps> = ({
 
           <Button
             type="submit"
-            disabled={loading}
+            disabled={loading || !isOnline}
+            title={!isOnline ? "You must be online to save changes" : undefined}
           >
             {loading
               ? 'Saving...'
-              : (editRequestId ? 'Save Changes' : 'Create Request')}
+              : !isOnline
+                ? 'Offline'
+                : (editRequestId ? 'Save Changes' : 'Create Request')}
           </Button>
         </div>
       </form>
