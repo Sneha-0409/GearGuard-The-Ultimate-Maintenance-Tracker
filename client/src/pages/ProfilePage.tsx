@@ -87,7 +87,7 @@ const ProfilePage: React.FC = () => {
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl flex items-center justify-between">
         <div className="flex items-center space-x-6">
           <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl font-bold shadow-inner ring-4 ring-white/30">
-            {user?.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+            {user?.name ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U"}
           </div>
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">{user?.name}</h1>
