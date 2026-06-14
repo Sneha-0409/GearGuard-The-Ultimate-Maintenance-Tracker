@@ -1,5 +1,5 @@
 import api from './api';
-import { MaintenanceRequest, CreateMaintenanceRequestDto, RequestFilters, PaginatedResponse } from '../types';
+import { MaintenanceRequest, CreateMaintenanceRequestDto, RequestFilters, PaginatedResponse, TechnicianWorkload } from '../types';
 import toast from 'react-hot-toast';
 
 export interface AnalyticsQuery {
@@ -224,5 +224,16 @@ export const requestService = {
     const response = await api.patch(`/requests/${requestId}/reject`);
     toast.success("Financial approval rejected.");
     return response.data;
+  },
+
+  getWorkload: async (): Promise<TechnicianWorkload[]> => {
+    try {
+      const response = await api.get('/requests/workload');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching technician workload:', error);
+      toast.error('Failed to load workload overview');
+      throw error;
+    }
   }
 };

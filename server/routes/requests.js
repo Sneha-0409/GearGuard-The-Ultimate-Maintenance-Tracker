@@ -10,6 +10,7 @@ router.use(protect);
 
 router.get('/', requestController.getAllRequests);
 router.get('/calendar', requestController.getCalendarEvents);
+router.get('/workload', requestController.getWorkload);
 router.get('/:id', requestController.getRequestById);
 router.post('/', requestController.createRequest);
 router.put('/:id', requestController.updateRequest);

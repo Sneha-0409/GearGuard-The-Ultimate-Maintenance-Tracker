@@ -393,3 +393,12 @@ export interface ShiftHandover {
 
 export * from './activity';
 export * from './inventory';
+
+export interface TechnicianWorkload {
+  technicianId: string;
+  technicianName: string;
+  technicianEmail: string;
+  technicianAvatar?: string;
+  openTicketsCount: number;
+  highPriorityCount: number;
+}
