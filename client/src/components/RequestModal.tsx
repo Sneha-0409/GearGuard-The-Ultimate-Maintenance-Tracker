@@ -14,9 +14,11 @@ import TicketComments from './TicketComments';
 import RequestToolsTab from './RequestToolsTab';
 import { MaintenanceRequest } from '../types';
 import { ShieldCheck, CheckCircle, AlertCircle } from 'lucide-react';
-import ImageUploadZone from './ImageUploadZone';
-import ImageGallery from './ImageGallery';
+import ImageUploadZone from "./ImageUploadZone";
+import ImageGallery from "./ImageGallery";
+import AudioDiagnosticLogger from "./AudioDiagnosticLogger";
 import axios from 'axios';
+import ToolSelectModal from "./ToolSelectModal";
 import RCAWizardModal from './RCAWizardModal';
 import CannibalizeModal from './CannibalizeModal';
 import Select from "react-select";
@@ -1181,12 +1183,17 @@ const RequestModal: React.FC<RequestModalProps> = ({
             <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">
               Upload New Attachments
             </h4>
-            <ImageUploadZone 
-              files={attachments} 
-              onChange={setAttachments} 
-              maxFiles={5} 
-              maxSizeMB={5} 
-            />
+            <div className="space-y-4">
+              <ImageUploadZone 
+                files={attachments} 
+                onChange={setAttachments} 
+                maxFiles={5} 
+                maxSizeMB={5} 
+              />
+              <AudioDiagnosticLogger 
+                onAudioRecorded={(file) => setAttachments(prev => [...prev, file])} 
+              />
+            </div>
           </div>
         </div>
 
