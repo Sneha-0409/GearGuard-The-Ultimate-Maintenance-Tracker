@@ -27,6 +27,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import NotificationCenter from "./NotificationCenter";
+import Scratchpad from "./Scratchpad";
 import LanguageSelector from "./LanguageSelector";
 import { useTranslation } from "react-i18next";
 import { authService } from "../services/authService";
@@ -259,6 +260,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Notifications panel */}
             <NotificationCenter />
+
+            {/* Quick Add Scratchpad */}
+            <Scratchpad />
 
             {/* Language Selector Selector */}
             <LanguageSelector />

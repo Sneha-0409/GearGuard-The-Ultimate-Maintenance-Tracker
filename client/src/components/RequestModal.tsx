@@ -12,13 +12,12 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import TicketComments from './TicketComments';
 import RequestToolsTab from './RequestToolsTab';
-import { MaintenanceRequest } from '../types';
+import { MaintenanceRequest, TechnicianWorkload } from '../types';
 import { ShieldCheck, CheckCircle, AlertCircle } from 'lucide-react';
 import ImageUploadZone from "./ImageUploadZone";
 import ImageGallery from "./ImageGallery";
 import AudioDiagnosticLogger from "./AudioDiagnosticLogger";
 import axios from 'axios';
-import ToolSelectModal from "./ToolSelectModal";
 import RCAWizardModal from './RCAWizardModal';
 import CannibalizeModal from './CannibalizeModal';
 import Select from "react-select";
@@ -108,6 +107,7 @@ const RequestModal: React.FC<RequestModalProps> = ({
   const [teams, setTeams] = useState<MaintenanceTeam[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
+  const [workloads, setWorkloads] = useState<TechnicianWorkload[]>([]);
   const [selectedParts, setSelectedParts] = useState<{ partId: string; quantityUsed: number }[]>([]);
   const [requiredParts, setRequiredParts] = useState<{ partId: string; quantityNeeded: number }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,18 +128,20 @@ const RequestModal: React.FC<RequestModalProps> = ({
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [equipmentData, teamsData, membersData, partsData] =
+        const [equipmentData, teamsData, membersData, partsData, workloadData] =
           await Promise.all([
             equipmentService.getAll(),
             teamService.getAllTeams(),
             teamService.getAllMembers(),
             inventoryService.getAll(),
+            requestService.getWorkload(),
           ]);
 
         setEquipment(equipmentData);
         setTeams(teamsData);
         setMembers(membersData);
         setSpareParts(partsData);
+        setWorkloads(workloadData);
       } catch (error) {
         console.error('Failed to load modal data:', error);
       }
@@ -962,12 +964,17 @@ const RequestModal: React.FC<RequestModalProps> = ({
                 const hasSkills = formData.requiredSkills.every(skill => techCerts.includes(skill));
                 certificationStatus = hasSkills ? " [✓ Certified]" : " [⚠ Lacks Skills]";
               }
-              
-              return (
-                <option key={memberId} value={String(memberId)}>
-                  {member.name} {member.role && `(${member.role})`}{certificationStatus}
-                </option>
-              );
+              const workload = workloads.find(w => w.technicianId === memberId);
+                const count = workload ? workload.openTicketsCount : 0;
+                let workloadBadge = "🟢 0-2 (Avail)";
+                if (count >= 6) workloadBadge = `🔴 ${count} (Overloaded)`;
+                else if (count >= 3) workloadBadge = `🟠 ${count} (Busy)`;
+
+                return (
+                  <option key={memberId} value={memberId}>
+                    {member.name} {certificationStatus ? `(${certificationStatus})` : ""} - {workloadBadge}
+                  </option>
+                );
             })}
           </select>
 
@@ -1359,7 +1366,7 @@ const RequestModal: React.FC<RequestModalProps> = ({
         partId={selectedPartForCannibalize.partId}
         partName={selectedPartForCannibalize.name}
         quantityNeeded={selectedPartForCannibalize.quantity}
-        currentEquipmentId={existingRequest?.equipmentId as string || formData.equipmentId}
+        currentEquipmentId={existingRequest?.equipmentId as string || formData.equipmentId || ""}
       />
     )}
       {showRCAWizard && existingRequest?.equipment?.category && (

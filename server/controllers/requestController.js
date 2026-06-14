@@ -2326,3 +2326,55 @@ exports.rejectRequest = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+exports.getWorkload = async (req, res) => {
+  try {
+    const workload = await MaintenanceRequest.aggregate([
+      {
+        $match: {
+          stage: { $in: ['new', 'in-progress'] },
+          assignedToId: { $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: '$assignedToId',
+          openTicketsCount: { $sum: 1 },
+          highPriorityCount: {
+            $sum: { $cond: [{ $in: ['$priority', ['high', 'urgent']] }, 1, 0] }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'teammembers',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'technician'
+        }
+      },
+      {
+        $unwind: '$technician'
+      },
+      {
+        $project: {
+          _id: 0,
+          technicianId: '$_id',
+          technicianName: '$technician.name',
+          technicianEmail: '$technician.email',
+          technicianAvatar: '$technician.avatar',
+          openTicketsCount: 1,
+          highPriorityCount: 1
+        }
+      },
+      {
+        $sort: { openTicketsCount: -1 }
+      }
+    ]);
+    
+    res.json(workload);
+  } catch (error) {
+    console.error('Workload Aggregation Error:', error);
+    res.status(500).json({ message: 'Failed to fetch technician workload' });
+  }
+};
