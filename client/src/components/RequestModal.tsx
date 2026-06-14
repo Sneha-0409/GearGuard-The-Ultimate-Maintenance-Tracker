@@ -18,7 +18,6 @@ import ImageUploadZone from "./ImageUploadZone";
 import ImageGallery from "./ImageGallery";
 import AudioDiagnosticLogger from "./AudioDiagnosticLogger";
 import axios from 'axios';
-import ToolSelectModal from "./ToolSelectModal";
 import RCAWizardModal from './RCAWizardModal';
 import CannibalizeModal from './CannibalizeModal';
 import Select from "react-select";
@@ -1359,7 +1358,7 @@ const RequestModal: React.FC<RequestModalProps> = ({
         partId={selectedPartForCannibalize.partId}
         partName={selectedPartForCannibalize.name}
         quantityNeeded={selectedPartForCannibalize.quantity}
-        currentEquipmentId={existingRequest?.equipmentId as string || formData.equipmentId}
+        currentEquipmentId={existingRequest?.equipmentId as string || formData.equipmentId || ""}
       />
     )}
       {showRCAWizard && existingRequest?.equipment?.category && (
