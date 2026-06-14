@@ -1,7 +1,10 @@
 import React, {
   useState,
   useEffect,
+  useCallback,
 } from "react";
+
+import { io } from "socket.io-client";
 
 import {
   DndProvider,
@@ -549,12 +552,7 @@ const KanbanBoard: React.FC =
     const [closureModalData, setClosureModalData] = useState<{ requestId: string, newStage: string } | null>(null);
     const [lotoModalData, setLotoModalData] = useState<{ request: MaintenanceRequest } | null>(null);
 
-    useEffect(() => {
-      loadRequests();
-    }, [filters]);
-
-    const loadRequests =
-      async () => {
+    const loadRequests = useCallback(async () => {
         try {
           const data =
             await requestService.getFiltered(
@@ -628,7 +626,33 @@ const KanbanBoard: React.FC =
         } finally {
           setLoading(false);
         }
+      }, [filters]);
+
+    useEffect(() => {
+      loadRequests();
+    }, [loadRequests]);
+
+    useEffect(() => {
+      const socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
+        withCredentials: true,
+      });
+
+      socket.on("connect", () => {
+        loadRequests();
+      });
+
+      socket.on("request_updated", () => {
+        loadRequests();
+      });
+      
+      socket.on("request_created", () => {
+        loadRequests();
+      });
+
+      return () => {
+        socket.disconnect();
       };
+    }, [loadRequests]);
 
     const handleDrop = async (requestId: string, newStage: string) => {
       const draggedReq = requests.find(r => (r.id || r._id) === requestId);
