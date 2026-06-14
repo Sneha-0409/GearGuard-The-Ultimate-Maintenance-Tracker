@@ -15,6 +15,7 @@ import { globalSearch } from '../services/searchService';
 import SearchDropdown from '../components/SearchDropdown';
 import { getHighRiskEquipment } from '../services/predictiveService';
 import RequestModal from '../components/RequestModal';
+import NFCScanner from '../components/NFCScanner';
 
 const Dashboard: React.FC = () => {
   const { t } = useTranslation();
@@ -244,10 +245,11 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search & NFC Scan */}
       <div className="rounded-3xl border border-white/50 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 p-4 shadow-lg backdrop-blur-sm md:p-5">
-        <div ref={searchRef} className="relative w-full">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500 md:h-5 md:w-5" />
+        <div className="flex gap-3 items-center w-full">
+          <div ref={searchRef} className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500 md:h-5 md:w-5" />
 
           <input
             type="text"
@@ -292,6 +294,8 @@ const Dashboard: React.FC = () => {
               }}
             />
           )}
+        </div>
+        <NFCScanner />
         </div>
       </div>
 

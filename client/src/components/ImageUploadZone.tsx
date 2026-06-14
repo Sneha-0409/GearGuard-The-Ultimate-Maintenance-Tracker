@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
-import { UploadCloud, X, File as FileIcon } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { UploadCloud, X, File as FileIcon, PenTool } from 'lucide-react';
+import ImageAnnotationModal from './ImageAnnotationModal';
 
 interface ImageUploadZoneProps {
   files: File[];
@@ -14,6 +15,8 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
   maxFiles = 5, 
   maxSizeMB = 5 
 }) => {
+  const [annotatingFileIndex, setAnnotatingFileIndex] = useState<number | null>(null);
+
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -53,6 +56,13 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
     onChange(files.filter((_, index) => index !== indexToRemove));
   };
 
+  const handleSaveAnnotation = (annotatedFile: File) => {
+    if (annotatingFileIndex === null) return;
+    const newFiles = [...files];
+    newFiles[annotatingFileIndex] = annotatedFile;
+    onChange(newFiles);
+  };
+
   return (
     <div className="w-full">
       <div 
@@ -90,16 +100,38 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
                 )}
                 <span className="text-xs truncate text-gray-700 dark:text-gray-200 max-w-[150px]">{file.name}</span>
               </div>
-              <button 
-                type="button" 
-                onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                className="p-1 flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center space-x-1 flex-shrink-0">
+                {file.type.includes('image') && (
+                  <button 
+                    type="button" 
+                    onClick={(e) => { e.stopPropagation(); setAnnotatingFileIndex(index); }}
+                    className="p-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                    title="Annotate Image"
+                  >
+                    <PenTool className="w-4 h-4" />
+                  </button>
+                )}
+                <button 
+                  type="button" 
+                  onClick={(e) => { e.stopPropagation(); removeFile(index); }}
+                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                  title="Remove File"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
+      )}
+
+      {annotatingFileIndex !== null && (
+        <ImageAnnotationModal
+          isOpen={true}
+          onClose={() => setAnnotatingFileIndex(null)}
+          file={files[annotatingFileIndex]}
+          onSave={handleSaveAnnotation}
+        />
       )}
     </div>
   );
