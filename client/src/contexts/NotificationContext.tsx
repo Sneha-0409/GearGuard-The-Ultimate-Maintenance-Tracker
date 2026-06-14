@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { Socket } from "socket.io-client";
 import toast from 'react-hot-toast';
 import { Notification } from '../types';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 
 interface NotificationContextType {
@@ -25,7 +26,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [, setSocket] = useState<Socket | null>(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const location = useLocation();
+
+  const unreadCount = notifications.filter((n) => !n.read && !n.isRead).length;
 
   // Fetch initial notifications from DB
   const fetchNotifications = useCallback(async () => {
@@ -97,13 +100,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       newSocket.disconnect();
     };
-  }, [fetchNotifications, user]);
+  }, [fetchNotifications, user, location.pathname]);
 
   const markAsRead = async (id: string) => {
     try {
       await api.patch(`/notifications/${id}/read`);
       setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, read: true } : n))
+        prev.map((n) => (n._id === id ? { ...n, read: true, isRead: true } : n))
       );
     } catch (error) {
       console.error('Error marking notification as read:', error);

@@ -38,9 +38,9 @@ const NotificationCenter: React.FC = () => {
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read) {
-      markAsRead(notification._id);
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.read && !notification.isRead) {
+      await markAsRead(notification._id);
     }
     setIsOpen(false);
     
@@ -105,7 +105,7 @@ const NotificationCenter: React.FC = () => {
                     key={notification._id}
                     className={clsx(
                       "group relative p-4 transition-all duration-500 border-l-4",
-                      !notification.read 
+                        !notification.read && !notification.isRead 
                         ? "bg-purple-50/80 dark:bg-purple-900/20 border-purple-500 hover:bg-purple-100/80 dark:hover:bg-purple-900/40 shadow-sm dark:shadow-none z-10" 
                         : "bg-transparent border-transparent hover:bg-gray-50/80 dark:hover:bg-slate-700/30"
                     )}
@@ -120,7 +120,7 @@ const NotificationCenter: React.FC = () => {
                       >
                         <p className={clsx(
                           "text-sm",
-                          !notification.read ? "font-bold text-gray-900 dark:text-white" : "font-medium text-gray-600 dark:text-gray-300"
+                          !notification.read && !notification.isRead ? "font-bold text-gray-900 dark:text-white" : "font-medium text-gray-600 dark:text-gray-300"
                         )}>
                           {notification.message}
                         </p>
@@ -131,7 +131,7 @@ const NotificationCenter: React.FC = () => {
                       
                       {/* Action Buttons */}
                       <div className="flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {!notification.read && (
+                        {!notification.read && !notification.isRead && (
                           <button 
                             onClick={() => markAsRead(notification._id)}
                             className="text-gray-400 hover:text-green-600 transition-colors"
